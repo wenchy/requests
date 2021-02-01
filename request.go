@@ -16,7 +16,7 @@ import (
 
 // request issues a http request.
 func request(method, rawurl string, headers map[string]string, params map[string]string, body io.Reader) (*Response, error) {
-	if params != nil {
+	if params != nil && len(params) != 0 {
 		// check raw url, should not contain character '?'
 		if strings.Contains(rawurl, "?") {
 			return nil, errors.Errorf("params not nil, so raw url should not contain character '?'")

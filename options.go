@@ -98,8 +98,8 @@ func JSON(obj interface{}) Option {
 
 func newDefaultOptions() *Options {
 	return &Options{
-		Headers: nil,
-		Params:  nil,
+		Headers: map[string]string{},
+		Params:  map[string]string{},
 		Form:    nil,
 		JSON:    nil,
 	}
