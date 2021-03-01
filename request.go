@@ -6,6 +6,7 @@ package requests
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -54,6 +55,24 @@ func request(method, rawurl string, headers map[string]string, params map[string
 
 	if rsp.StatusCode != http.StatusOK {
 		return r, errors.Errorf(rsp.Status)
+	}
+
+	return r, nil
+}
+
+// requestData issues a http request to the specified URL, with raw string
+// as the request body.
+func requestData(method, rawurl string, headers map[string]string, params map[string]string, data interface{}) (*Response, error) {
+	var body *strings.Reader
+	if data != nil {
+		d := fmt.Sprintf("%v", data)
+		body = strings.NewReader(d)
+	}
+	// TODO: judge content type
+	// headers["Content-Type"] = "application/x-www-form-urlencoded"
+	r, err := request(method, rawurl, headers, params, body)
+	if err != nil {
+		return nil, err
 	}
 
 	return r, nil
@@ -109,7 +128,9 @@ func Get(url string, setters ...Option) (*Response, error) {
 // Post issues a http POST request.
 func Post(url string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
-	if opts.Form != nil {
+	if opts.Data != nil {
+		return requestData(http.MethodPost, url, opts.Headers, opts.Params, opts.Data)
+	} else if opts.Form != nil {
 		return requestForm(http.MethodPost, url, opts.Headers, opts.Params, opts.Form)
 	} else if opts.JSON != nil {
 		return requestJSON(http.MethodPost, url, opts.Headers, opts.Params, opts.JSON)
@@ -121,7 +142,9 @@ func Post(url string, setters ...Option) (*Response, error) {
 // Put issues a http PUT request.
 func Put(url string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
-	if opts.Form != nil {
+	if opts.Data != nil {
+		return requestData(http.MethodPut, url, opts.Headers, opts.Params, opts.Data)
+	} else if opts.Form != nil {
 		return requestForm(http.MethodPut, url, opts.Headers, opts.Params, opts.Form)
 	} else if opts.JSON != nil {
 		return requestJSON(http.MethodPut, url, opts.Headers, opts.Params, opts.JSON)

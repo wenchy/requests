@@ -8,6 +8,7 @@ import (
 type Options struct {
 	Headers map[string]string
 	Params  map[string]string
+	Data    interface{}
 	Form    map[string]string
 	JSON    interface{}
 }
@@ -61,6 +62,13 @@ func ParamPairs(kv ...string) Option {
 		params[key] = s
 	}
 	return Params(params)
+}
+
+// Data set raw string into the request body.
+func Data(data interface{}) Option {
+	return func(opts *Options) {
+		opts.Data = data
+	}
 }
 
 // Form encode the given KV into the request body.
