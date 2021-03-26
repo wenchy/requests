@@ -20,7 +20,7 @@ func TestGet(t *testing.T) {
 		{
 			name: "test case 1",
 			args: args{
-				url:     "https://9.134.55.198/dev/",
+				url:     "http://9.134.55.198/dev/",
 				setters: []Option{
 					BasicAuth("wenchyzhu", "wenchyzhu"),
 				},
