@@ -16,7 +16,7 @@ import (
 )
 
 // request issues a http request.
-func request(method, rawurl string, headers map[string]string, params map[string]string, body io.Reader) (*Response, error) {
+func request(method, rawurl string, auth Auth, headers map[string]string, params map[string]string, body io.Reader) (*Response, error) {
 	if params != nil && len(params) != 0 {
 		// check raw url, should not contain character '?'
 		if strings.Contains(rawurl, "?") {
@@ -42,7 +42,15 @@ func request(method, rawurl string, headers map[string]string, params map[string
 		}
 	}
 
-	client := &http.Client{}
+	if auth.authType == HTTPBasicAuth {
+		req.SetBasicAuth(auth.username, auth.password)
+	}
+	// TODO(wenchy): some other auth types
+
+	client := &http.Client{
+		CheckRedirect: redirectPolicyFunc,
+	}
+
 	rsp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -62,7 +70,7 @@ func request(method, rawurl string, headers map[string]string, params map[string
 
 // requestData issues a http request to the specified URL, with raw string
 // as the request body.
-func requestData(method, rawurl string, headers map[string]string, params map[string]string, data interface{}) (*Response, error) {
+func requestData(method, rawurl string, auth Auth, headers map[string]string, params map[string]string, data interface{}) (*Response, error) {
 	var body *strings.Reader
 	if data != nil {
 		d := fmt.Sprintf("%v", data)
@@ -70,7 +78,7 @@ func requestData(method, rawurl string, headers map[string]string, params map[st
 	}
 	// TODO: judge content type
 	// headers["Content-Type"] = "application/x-www-form-urlencoded"
-	r, err := request(method, rawurl, headers, params, body)
+	r, err := request(method, rawurl, auth, headers, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +88,7 @@ func requestData(method, rawurl string, headers map[string]string, params map[st
 
 // requestForm issues a http request to the specified URL, with form's keys and
 // values URL-encoded as the request body.
-func requestForm(method, rawurl string, headers map[string]string, params map[string]string, form map[string]string) (*Response, error) {
+func requestForm(method, rawurl string, auth Auth, headers map[string]string, params map[string]string, form map[string]string) (*Response, error) {
 	var body *strings.Reader
 	if form != nil {
 		formValues := url.Values{}
@@ -91,7 +99,7 @@ func requestForm(method, rawurl string, headers map[string]string, params map[st
 	}
 
 	headers["Content-Type"] = "application/x-www-form-urlencoded"
-	r, err := request(method, rawurl, headers, params, body)
+	r, err := request(method, rawurl, auth, headers, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +108,7 @@ func requestForm(method, rawurl string, headers map[string]string, params map[st
 }
 
 // requestJSON issues a http request, and encode request body as json.
-func requestJSON(method, rawurl string, headers map[string]string, params map[string]string, req interface{}) (*Response, error) {
+func requestJSON(method, rawurl string, auth Auth, headers map[string]string, params map[string]string, req interface{}) (*Response, error) {
 	var body *bytes.Buffer
 	if req != nil {
 		reqBytes, err := json.Marshal(req)
@@ -111,7 +119,7 @@ func requestJSON(method, rawurl string, headers map[string]string, params map[st
 	}
 
 	headers["Content-Type"] = "application/json"
-	r, err := request(method, rawurl, headers, params, body)
+	r, err := request(method, rawurl, auth, headers, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -120,41 +128,41 @@ func requestJSON(method, rawurl string, headers map[string]string, params map[st
 }
 
 // Get issues a http GET request.
-func Get(url string, setters ...Option) (*Response, error) {
+func Get(rawurl string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
-	return request(http.MethodGet, url, opts.Headers, opts.Params, nil)
+	return request(http.MethodGet, rawurl, opts.Auth, opts.Headers, opts.Params, nil)
 }
 
 // Post issues a http POST request.
-func Post(url string, setters ...Option) (*Response, error) {
+func Post(rawurl string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
 	if opts.Data != nil {
-		return requestData(http.MethodPost, url, opts.Headers, opts.Params, opts.Data)
+		return requestData(http.MethodPost, rawurl, opts.Auth, opts.Headers, opts.Params, opts.Data)
 	} else if opts.Form != nil {
-		return requestForm(http.MethodPost, url, opts.Headers, opts.Params, opts.Form)
+		return requestForm(http.MethodPost, rawurl, opts.Auth, opts.Headers, opts.Params, opts.Form)
 	} else if opts.JSON != nil {
-		return requestJSON(http.MethodPost, url, opts.Headers, opts.Params, opts.JSON)
+		return requestJSON(http.MethodPost, rawurl, opts.Auth, opts.Headers, opts.Params, opts.JSON)
 	} else {
-		return request(http.MethodPost, url, opts.Headers, opts.Params, nil)
+		return request(http.MethodPost, rawurl, opts.Auth, opts.Headers, opts.Params, nil)
 	}
 }
 
 // Put issues a http PUT request.
-func Put(url string, setters ...Option) (*Response, error) {
+func Put(rawurl string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
 	if opts.Data != nil {
-		return requestData(http.MethodPut, url, opts.Headers, opts.Params, opts.Data)
+		return requestData(http.MethodPut, rawurl, opts.Auth, opts.Headers, opts.Params, opts.Data)
 	} else if opts.Form != nil {
-		return requestForm(http.MethodPut, url, opts.Headers, opts.Params, opts.Form)
+		return requestForm(http.MethodPut, rawurl, opts.Auth, opts.Headers, opts.Params, opts.Form)
 	} else if opts.JSON != nil {
-		return requestJSON(http.MethodPut, url, opts.Headers, opts.Params, opts.JSON)
+		return requestJSON(http.MethodPut, rawurl, opts.Auth, opts.Headers, opts.Params, opts.JSON)
 	} else {
-		return request(http.MethodPut, url, opts.Headers, opts.Params, nil)
+		return request(http.MethodPut, rawurl, opts.Auth, opts.Headers, opts.Params, nil)
 	}
 }
 
 // Delete issues a http DELETE request.
-func Delete(url string, setters ...Option) (*Response, error) {
+func Delete(rawurl string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
-	return request(http.MethodDelete, url, opts.Headers, opts.Params, nil)
+	return request(http.MethodDelete, rawurl, opts.Auth, opts.Headers, opts.Params, nil)
 }

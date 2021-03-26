@@ -11,6 +11,9 @@ type Options struct {
 	Data    interface{}
 	Form    map[string]string
 	JSON    interface{}
+
+	// auth
+	Auth Auth
 }
 
 // Option is the functional option type.
@@ -101,6 +104,17 @@ func FormPairs(kv ...string) Option {
 func JSON(obj interface{}) Option {
 	return func(opts *Options) {
 		opts.JSON = obj
+	}
+}
+
+// BasicAuth is the option to implement HTTP Basic Auth.
+func BasicAuth(username, password string) Option {
+	return func(opts *Options) {
+		opts.Auth = Auth{
+			authType: HTTPBasicAuth,
+			username: username,
+			password: password,
+		}
 	}
 }
 

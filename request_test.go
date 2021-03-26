@@ -20,8 +20,10 @@ func TestGet(t *testing.T) {
 		{
 			name: "test case 1",
 			args: args{
-				url:     "https://github.com",
-				setters: nil,
+				url:     "https://9.134.55.198/dev/",
+				setters: []Option{
+					BasicAuth("wenchyzhu", "wenchyzhu"),
+				},
 			},
 			wantErr: false,
 		},
