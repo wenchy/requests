@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -49,6 +50,7 @@ func request(method, rawurl string, auth Auth, headers map[string]string, params
 
 	client := &http.Client{
 		CheckRedirect: redirectPolicyFunc,
+		Timeout:       5 * time.Second,
 	}
 
 	rsp, err := client.Do(req)
