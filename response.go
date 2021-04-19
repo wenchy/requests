@@ -16,6 +16,9 @@ type Response struct {
 
 // StatusCode get status code of http response.
 func (r *Response) StatusCode() int {
+	if r.rsp == nil {
+		return http.StatusServiceUnavailable
+	}
 	return r.rsp.StatusCode
 }
 

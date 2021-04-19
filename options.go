@@ -2,18 +2,24 @@ package requests
 
 import (
 	"fmt"
+	"io"
 )
 
 // Options follow the design of Functional Options(https://github.com/tmrts/go-patterns/blob/master/idiom/functional-options.md)
 type Options struct {
 	Headers map[string]string
 	Params  map[string]string
-	Data    interface{}
-	Form    map[string]string
-	JSON    interface{}
+	// body
+	Body io.Reader
+	// different body types
+	Data interface{}
+	Form map[string]string
+	JSON interface{}
 
 	// auth
 	Auth Auth
+	// timeout seconds
+	Timeout int64
 }
 
 // Option is the functional option type.
@@ -67,6 +73,13 @@ func ParamPairs(kv ...string) Option {
 	return Params(params)
 }
 
+// Body set io.Reader to hold request body.
+func Body(body io.Reader) Option {
+	return func(opts *Options) {
+		opts.Body = body
+	}
+}
+
 // Data set raw string into the request body.
 func Data(data interface{}) Option {
 	return func(opts *Options) {
@@ -118,12 +131,26 @@ func BasicAuth(username, password string) Option {
 	}
 }
 
+// Timeout specifies a time limit for requests made by this
+// Client. The timeout includes connection time, any
+// redirects, and reading the response body. The timer remains
+// running after Get, Head, Post, or Do return and will
+// interrupt reading of the Response.Body.
+//
+// A Timeout of zero means no timeout. Default is 60s.
+func Timeout(timeout int64) Option {
+	return func(opts *Options) {
+		opts.Timeout = timeout
+	}
+}
+
 func newDefaultOptions() *Options {
 	return &Options{
 		Headers: map[string]string{},
 		Params:  map[string]string{},
 		Form:    nil,
 		JSON:    nil,
+		Timeout: env.Timeout,
 	}
 }
 
