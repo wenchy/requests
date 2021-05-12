@@ -86,7 +86,7 @@ func requestData(method, rawurl string, setters ...Option) (*Response, error) {
 	setters = append(setters, Body(body))
 	r, err := request(method, rawurl, setters...)
 	if err != nil {
-		return nil, err
+		return r, err
 	}
 
 	return r, nil
@@ -110,7 +110,7 @@ func requestForm(method, rawurl string, setters ...Option) (*Response, error) {
 	setters = append(setters, Body(body))
 	r, err := request(method, rawurl, setters...)
 	if err != nil {
-		return nil, err
+		return r, err
 	}
 
 	return r, nil
@@ -134,7 +134,7 @@ func requestJSON(method, rawurl string, setters ...Option) (*Response, error) {
 	setters = append(setters, Body(body))
 	r, err := request(method, rawurl, setters...)
 	if err != nil {
-		return nil, err
+		return r, err
 	}
 
 	return r, nil
