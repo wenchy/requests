@@ -76,10 +76,14 @@ func (r *Response) URL() string {
 	return r.rsp.Request.URL.String()
 }
 
-func (r *Response) Header(key string) string {
-	return r.rsp.Header.Get(key)
+func (r *Response) Headers() http.Header {
+	return r.rsp.Header
 }
 
-func (r *Response) Cookies() []*http.Cookie {
-	return r.rsp.Cookies()
+func (r *Response) Cookies() map[string]*http.Cookie {
+	m := make(map[string]*http.Cookie)
+	for _, c := range r.rsp.Cookies() {
+		m[c.Name] = c
+	}
+	return m
 }
