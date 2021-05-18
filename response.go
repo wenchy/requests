@@ -75,3 +75,15 @@ func (r *Response) Method() string {
 func (r *Response) URL() string {
 	return r.rsp.Request.URL.String()
 }
+
+func (r *Response) Headers() http.Header {
+	return r.rsp.Header
+}
+
+func (r *Response) Cookies() map[string]*http.Cookie {
+	m := make(map[string]*http.Cookie)
+	for _, c := range r.rsp.Cookies() {
+		m[c.Name] = c
+	}
+	return m
+}
