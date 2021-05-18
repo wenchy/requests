@@ -53,7 +53,7 @@ func TestGet(t *testing.T) {
 			if got != nil {
 				fmt.Printf("status code: %v\n", got.StatusCode())
 				fmt.Printf("headers: %+v\n", got.Headers())
-				fmt.Printf("cookie: %+v\n", got.Cookies())
+				fmt.Printf("cookies: %+v\n", got.Cookies())
 			} else {
 				fmt.Printf("Get failed: %v\n", err)
 			}
