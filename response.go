@@ -75,3 +75,11 @@ func (r *Response) Method() string {
 func (r *Response) URL() string {
 	return r.rsp.Request.URL.String()
 }
+
+func (r *Response) Header(key string) string {
+	return r.rsp.Header.Get(key)
+}
+
+func (r *Response) Cookies() []*http.Cookie {
+	return r.rsp.Cookies()
+}

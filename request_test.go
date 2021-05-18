@@ -52,6 +52,7 @@ func TestGet(t *testing.T) {
 			}
 			if got != nil {
 				fmt.Printf("status code: %v\n", got.StatusCode())
+				fmt.Printf("content type: %s\n", got.Header("content-type"))
 			} else {
 				fmt.Printf("Get failed: %v\n", err)
 			}
