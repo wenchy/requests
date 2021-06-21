@@ -175,5 +175,14 @@ func Put(rawurl string, setters ...Option) (*Response, error) {
 
 // Delete issues a http DELETE request.
 func Delete(rawurl string, setters ...Option) (*Response, error) {
-	return request(http.MethodDelete, rawurl, setters...)
+	opts := parseOptions(setters...)
+	if opts.Data != nil {
+		return requestData(http.MethodDelete, rawurl, setters...)
+	} else if opts.Form != nil {
+		return requestForm(http.MethodDelete, rawurl, setters...)
+	} else if opts.JSON != nil {
+		return requestJSON(http.MethodDelete, rawurl, setters...)
+	} else {
+		return request(http.MethodDelete, rawurl, setters...)
+	}
 }
