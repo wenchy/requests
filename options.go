@@ -3,6 +3,7 @@ package requests
 import (
 	"fmt"
 	"io"
+	"os"
 )
 
 // Options follow the design of Functional Options(https://github.com/tmrts/go-patterns/blob/master/idiom/functional-options.md)
@@ -12,9 +13,10 @@ type Options struct {
 	// body
 	Body io.Reader
 	// different body types
-	Data interface{}
-	Form map[string]string
-	JSON interface{}
+	Data  interface{}
+	Form  map[string]string
+	JSON  interface{}
+	Files map[string]*os.File
 
 	// auth
 	Auth Auth
@@ -128,6 +130,14 @@ func BasicAuth(username, password string) Option {
 			username: username,
 			password: password,
 		}
+	}
+}
+
+// Files sets files to a map of (field, fileHandler).
+// It also sets the Content-Type as "multipart/form-data"
+func Files(files map[string]*os.File) Option {
+	return func(opts *Options) {
+		opts.Files = files
 	}
 }
 

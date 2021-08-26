@@ -7,12 +7,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
 )
 
 // request issues a http request.
@@ -21,7 +23,7 @@ func request(method, rawurl string, setters ...Option) (*Response, error) {
 	if opts.Params != nil && len(opts.Params) != 0 {
 		// check raw url, should not contain character '?'
 		if strings.Contains(rawurl, "?") {
-			return nil, errors.Errorf("params not nil, so raw url should not contain character '?'")
+			return nil, errors.New("params not nil, so raw url should not contain character '?'")
 		}
 		queryValues := url.Values{}
 		for k, v := range opts.Params {
@@ -63,8 +65,8 @@ func request(method, rawurl string, setters ...Option) (*Response, error) {
 		rsp: rsp,
 	}
 
-	if rsp.StatusCode != http.StatusOK {
-		return r, errors.Errorf(rsp.Status)
+	if rsp.StatusCode < http.StatusOK || rsp.StatusCode > http.StatusIMUsed {
+		return r, errors.New(rsp.Status)
 	}
 
 	return r, nil
@@ -140,6 +142,34 @@ func requestJSON(method, rawurl string, setters ...Option) (*Response, error) {
 	return r, nil
 }
 
+// requestFiles issues an uploading request for multiple multipart-encoded files.
+func requestFiles(method, rawurl string, setters ...Option) (*Response, error) {
+	opts := parseOptions(setters...)
+	var body bytes.Buffer
+	bodyWriter := multipart.NewWriter(&body)
+	if opts.Files != nil {
+		for field, fh := range opts.Files {
+			fileWriter, err := bodyWriter.CreateFormFile(field, fh.Name())
+			if err != nil {
+				return nil, err
+			}
+			if _, err := io.Copy(fileWriter, fh); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	opts.Headers["Content-Type"] = bodyWriter.FormDataContentType()
+
+	setters = append(setters, Headers(opts.Headers))
+	setters = append(setters, Body(&body))
+	// write EOF before sending
+	if err := bodyWriter.Close(); err != nil {
+		return nil, err
+	}
+	return request(method, rawurl, setters...)
+}
+
 // Get issues a http GET request.
 func Get(rawurl string, setters ...Option) (*Response, error) {
 	return request(http.MethodGet, rawurl, setters...)
@@ -154,6 +184,8 @@ func Post(rawurl string, setters ...Option) (*Response, error) {
 		return requestForm(http.MethodPost, rawurl, setters...)
 	} else if opts.JSON != nil {
 		return requestJSON(http.MethodPost, rawurl, setters...)
+	} else if opts.Files != nil {
+		return requestFiles(http.MethodPost, rawurl, setters...)
 	} else {
 		return request(http.MethodPost, rawurl, setters...)
 	}
