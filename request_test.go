@@ -174,7 +174,88 @@ func TestPost(t *testing.T) {
 				t.Errorf("Post() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			t.Logf("%+v\n", resp)
+			if resp != nil {
+				text, err := resp.Text()
+				if (err != nil) != tt.wantErr {
+					t.Errorf("Patch() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
+				t.Logf("resp: %s", text)
+			}
+		})
+	}
+}
+
+func TestPatch(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("method is not PATCH: %s", r.Method)
+		}
+		b, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read body failed: %+v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write(b); err != nil {
+			t.Errorf("write response failed: %+v", err)
+		}
+	}))
+	defer testServer.Close()
+	type args struct {
+		rawurl  string
+		setters []Option
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *Response
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+		{
+			name: "patch test case 1",
+			args: args{
+				rawurl: testServer.URL,
+				setters: []Option{
+					JSON(map[string]interface{}{
+						"status":  0,
+						"message": "hello http patch",
+					}),
+					Timeout(120),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "patch test case 2",
+			args: args{
+				rawurl: "http://127.0.0.1:11111/unknown",
+				setters: []Option{
+					JSON(map[string]interface{}{
+						"status":  0,
+						"message": "hello http patch",
+					}),
+					Timeout(120),
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := Patch(tt.args.rawurl, tt.args.setters...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Patch() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if resp != nil {
+				text, err := resp.Text()
+				if (err != nil) != tt.wantErr {
+					t.Errorf("Patch() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
+				t.Logf("resp: %s", text)
+			}
 		})
 	}
 }

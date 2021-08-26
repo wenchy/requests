@@ -205,6 +205,20 @@ func Put(rawurl string, setters ...Option) (*Response, error) {
 	}
 }
 
+// Patch issues a http PATCH request.
+func Patch(rawurl string, setters ...Option) (*Response, error) {
+	opts := parseOptions(setters...)
+	if opts.Data != nil {
+		return requestData(http.MethodPatch, rawurl, setters...)
+	} else if opts.Form != nil {
+		return requestForm(http.MethodPatch, rawurl, setters...)
+	} else if opts.JSON != nil {
+		return requestJSON(http.MethodPatch, rawurl, setters...)
+	} else {
+		return request(http.MethodPatch, rawurl, setters...)
+	}
+}
+
 // Delete issues a http DELETE request.
 func Delete(rawurl string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
