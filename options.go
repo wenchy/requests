@@ -30,7 +30,13 @@ type Option func(*Options)
 // Headers set the HTTP header KVs.
 func Headers(headers map[string]string) Option {
 	return func(opts *Options) {
-		opts.Headers = headers
+		if opts.Headers != nil {
+			for k, v := range headers {
+				opts.Headers[k] = v
+			}
+		} else {
+			opts.Headers = headers
+		}
 	}
 }
 
@@ -54,7 +60,13 @@ func HeaderPairs(kv ...string) Option {
 // Params encode the given KV into the URL querystring.
 func Params(params map[string]string) Option {
 	return func(opts *Options) {
-		opts.Params = params
+		if opts.Params != nil {
+			for k, v := range params {
+				opts.Params[k] = v
+			}
+		} else {
+			opts.Params = params
+		}
 	}
 }
 
@@ -137,7 +149,13 @@ func BasicAuth(username, password string) Option {
 // It also sets the Content-Type as "multipart/form-data"
 func Files(files map[string]*os.File) Option {
 	return func(opts *Options) {
-		opts.Files = files
+		if opts.Files != nil {
+			for k, v := range files {
+				opts.Files[k] = v
+			}
+		} else {
+			opts.Files = files
+		}
 	}
 }
 
