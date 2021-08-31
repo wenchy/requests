@@ -13,6 +13,15 @@ import (
 )
 
 func TestGet(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("method is not GET: %s", r.Method)
+		}
+		t.Logf("query strings: %v", r.URL.Query())
+		t.Logf("headers: %v", r.Header)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer testServer.Close()
 	type args struct {
 		url     string
 		setters []Option
@@ -45,6 +54,20 @@ func TestGet(t *testing.T) {
 				},
 			},
 			wantErr: true,
+		},
+		{
+			name: "test case 3",
+			args: args{
+				url: testServer.URL,
+				setters: []Option{
+					ParamPairs("param1", "value1"),
+					ParamPairs("param2", "value2"),
+					HeaderPairs("header1", "value1"),
+					HeaderPairs("header2", "value2"),
+				},
+				timeout: 5,
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
