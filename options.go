@@ -22,6 +22,8 @@ type Options struct {
 	Auth Auth
 	// timeout seconds
 	Timeout int64
+
+	DisableKeepAlives bool
 }
 
 // Option is the functional option type.
@@ -169,6 +171,12 @@ func Files(files map[string]*os.File) Option {
 func Timeout(timeout int64) Option {
 	return func(opts *Options) {
 		opts.Timeout = timeout
+	}
+}
+
+func DisableKeepAlives() Option {
+	return func(opts *Options) {
+		opts.DisableKeepAlives = true
 	}
 }
 
