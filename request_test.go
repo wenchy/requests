@@ -69,6 +69,21 @@ func TestGet(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "disable keep alive",
+			args: args{
+				url: testServer.URL,
+				setters: []Option{
+					ParamPairs("param1", "value1"),
+					ParamPairs("param2", "value2"),
+					HeaderPairs("header1", "value1"),
+					HeaderPairs("header2", "value2"),
+					DisableKeepAlives(),
+				},
+				timeout: 5,
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
