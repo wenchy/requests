@@ -75,6 +75,10 @@ func request(method, rawurl string, setters ...Option) (*Response, error) {
 		return nil, err
 	}
 
+	if rsp == nil {
+		return nil, errors.New("response is nil")
+	}
+
 	// wrap http response
 	r := &Response{
 		rsp: rsp,
