@@ -27,6 +27,16 @@ func (r *Response) Raw() io.ReadCloser {
 	return r.rsp.Body
 }
 
+// Bytes return the http response body as []byte.
+func (r *Response) Bytes() ([]byte, error) {
+	if !r.bodyClosed {
+		if err := r.readAll(); err != nil {
+			return nil, err
+		}
+	}
+	return r.body, nil
+}
+
 // Text return the http response body as string.
 func (r *Response) Text() (string, error) {
 	if !r.bodyClosed {
