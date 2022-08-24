@@ -85,7 +85,8 @@ func request(method, rawurl string, setters ...Option) (*Response, error) {
 	}
 
 	if rsp.StatusCode < http.StatusOK || rsp.StatusCode > http.StatusIMUsed {
-		return r, errors.New(rsp.Status)
+		txt, _ := r.Text()
+		return r, errors.New(rsp.Status + " " + txt)
 	}
 
 	return r, nil
