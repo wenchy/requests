@@ -6,7 +6,9 @@ import (
 	"os"
 )
 
-// Options follow the design of Functional Options(https://github.com/tmrts/go-patterns/blob/master/idiom/functional-options.md)
+// Options is the optional parameters for HTTP request.
+//
+// Follow the design of Functional Options(https://github.com/tmrts/go-patterns/blob/master/idiom/functional-options.md)
 type Options struct {
 	Headers map[string]string
 	Params  map[string]string
@@ -29,7 +31,7 @@ type Options struct {
 // Option is the functional option type.
 type Option func(*Options)
 
-// Headers set the HTTP header KVs.
+// Headers sets the HTTP headers.
 func Headers(headers map[string]string) Option {
 	return func(opts *Options) {
 		if opts.Headers != nil {
@@ -42,7 +44,8 @@ func Headers(headers map[string]string) Option {
 	}
 }
 
-// HeaderPairs returns an Headers formed by the mapping of key, value ... Pairs panics if len(kv) is odd.
+// HeaderPairs sets HTTP headers formed by the mapping of key, value ...
+// Pairs panics if len(kv) is odd.
 func HeaderPairs(kv ...string) Option {
 	if len(kv)%2 == 1 {
 		panic(fmt.Sprintf("params: got the odd number of input pairs: %d", len(kv)))
@@ -59,7 +62,7 @@ func HeaderPairs(kv ...string) Option {
 	return Headers(headers)
 }
 
-// Params encode the given KV into the URL querystring.
+// Params sets the given params into the URL querystring.
 func Params(params map[string]string) Option {
 	return func(opts *Options) {
 		if opts.Params != nil {
@@ -72,7 +75,8 @@ func Params(params map[string]string) Option {
 	}
 }
 
-// ParamPairs returns an Params formed by the mapping of key, value ... Pairs panics if len(kv) is odd.
+// ParamPairs returns an Params formed by the mapping of key, value ...
+// Pairs panics if len(kv) is odd.
 func ParamPairs(kv ...string) Option {
 	if len(kv)%2 == 1 {
 		panic(fmt.Sprintf("params: got the odd number of input pairs: %d", len(kv)))
@@ -89,21 +93,21 @@ func ParamPairs(kv ...string) Option {
 	return Params(params)
 }
 
-// Body set io.Reader to hold request body.
+// Body sets io.Reader to hold request body.
 func Body(body io.Reader) Option {
 	return func(opts *Options) {
 		opts.Body = body
 	}
 }
 
-// Data set raw string into the request body.
+// Data sets raw string into the request body.
 func Data(data interface{}) Option {
 	return func(opts *Options) {
 		opts.Data = data
 	}
 }
 
-// Form encode the given KV into the request body.
+// Form sets the given form into the request body.
 // It also sets the Content-Type as "application/x-www-form-urlencoded".
 func Form(form map[string]string) Option {
 	return func(opts *Options) {
@@ -111,7 +115,8 @@ func Form(form map[string]string) Option {
 	}
 }
 
-// FormPairs returns an Form formed by the mapping of key, value ... Pairs panics if len(kv) is odd.
+// FormPairs sets form by the mapping of key, value ...
+// Pairs panics if len(kv) is odd.
 func FormPairs(kv ...string) Option {
 	if len(kv)%2 == 1 {
 		panic(fmt.Sprintf("params: got the odd number of input pairs: %d", len(kv)))
@@ -148,7 +153,7 @@ func BasicAuth(username, password string) Option {
 }
 
 // Files sets files to a map of (field, fileHandler).
-// It also sets the Content-Type as "multipart/form-data"
+// It also sets the Content-Type as "multipart/form-data".
 func Files(files map[string]*os.File) Option {
 	return func(opts *Options) {
 		if opts.Files != nil {
@@ -174,6 +179,10 @@ func Timeout(timeout int64) Option {
 	}
 }
 
+// DisableKeepAlives, if true, disables HTTP keep-alives and will
+// only use the connection to the server for a single HTTP request.
+//
+// This is unrelated to the similarly named TCP keep-alives.
 func DisableKeepAlives() Option {
 	return func(opts *Options) {
 		opts.DisableKeepAlives = true
