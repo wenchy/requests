@@ -8,7 +8,7 @@ import (
 
 // Response is a wrapper of HTTP response.
 type Response struct {
-	resp        *http.Response
+	resp       *http.Response
 	body       []byte // filled if resp.Body was already drained.
 	bodyClosed bool
 }
@@ -69,8 +69,10 @@ func (r *Response) readAll() error {
 
 // Close closes the HTTP response body read stream.
 func (r *Response) Close() error {
-	r.bodyClosed = true
-	return r.resp.Body.Close()
+	if !r.bodyClosed {
+		return r.resp.Body.Close()
+	}
+	return nil
 }
 
 // Method returns the HTTP request method.
