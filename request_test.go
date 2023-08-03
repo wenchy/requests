@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -25,7 +27,7 @@ func TestGet(t *testing.T) {
 	type args struct {
 		url     string
 		options []Option
-		timeout int64
+		timeout time.Duration
 	}
 	tests := []struct {
 		name    string
@@ -41,7 +43,7 @@ func TestGet(t *testing.T) {
 				options: []Option{
 					BasicAuth("XXX", "OOO"),
 				},
-				timeout: 5,
+				timeout: 5 * time.Second,
 			},
 			wantErr: false,
 		},
@@ -50,7 +52,7 @@ func TestGet(t *testing.T) {
 			args: args{
 				url: "https://127.0.0.1:4004",
 				options: []Option{
-					Timeout(120),
+					Timeout(120 * time.Second),
 				},
 			},
 			wantErr: true,
@@ -65,7 +67,7 @@ func TestGet(t *testing.T) {
 					HeaderPairs("header1", "value1"),
 					HeaderPairs("header2", "value2"),
 				},
-				timeout: 5,
+				timeout: 5 * time.Second,
 			},
 			wantErr: false,
 		},
@@ -80,7 +82,7 @@ func TestGet(t *testing.T) {
 					HeaderPairs("header2", "value2"),
 					DisableKeepAlives(),
 				},
-				timeout: 5,
+				timeout: 5 * time.Second,
 			},
 			wantErr: false,
 		},
@@ -114,6 +116,8 @@ func TestPost(t *testing.T) {
 	filename2 := "./testdata/file2.txt"
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handleUpload := func(formKey string) error {
+			// Go 1.17: net/http: multipart form should not include directory path in filename
+			// Refer: https://github.com/golang/go/issues/45789
 			file, header, err := r.FormFile(formKey)
 			if err != nil {
 				return errors.Wrapf(err, "get form file: %s failed", formKey)
@@ -123,9 +127,10 @@ func TestPost(t *testing.T) {
 			if err != nil {
 				return errors.Wrap(err, "read all failed")
 			}
-			src, err := os.ReadFile(header.Filename)
+			path := filepath.Join("./testdata/", header.Filename)
+			src, err := os.ReadFile(path)
 			if err != nil {
-				return errors.Wrapf(err, "read file: %s failed", header.Filename)
+				return errors.Wrapf(err, "read file: %s failed", path)
 			}
 			diff := bytes.Compare(got, src)
 			if diff != 0 {
@@ -166,7 +171,7 @@ func TestPost(t *testing.T) {
 	defer fh2.Close()
 
 	type args struct {
-		rawurl  string
+		urlStr  string
 		options []Option
 	}
 	tests := []struct {
@@ -179,13 +184,13 @@ func TestPost(t *testing.T) {
 		{
 			name: "upload file test case 1",
 			args: args{
-				rawurl: testServer.URL,
+				urlStr: testServer.URL,
 				options: []Option{
 					Files(map[string]*os.File{
 						"file1": fh1,
 						"file2": fh2,
 					}),
-					Timeout(120),
+					Timeout(120 * time.Second),
 				},
 			},
 			wantErr: false,
@@ -193,13 +198,13 @@ func TestPost(t *testing.T) {
 		{
 			name: "upload file test case 2",
 			args: args{
-				rawurl: "http://127.0.0.1:11111/unknown",
+				urlStr: "http://127.0.0.1:11111/unknown",
 				options: []Option{
 					Files(map[string]*os.File{
 						"file1": fh1,
 						"file2": fh2,
 					}),
-					Timeout(120),
+					Timeout(120 * time.Second),
 				},
 			},
 			wantErr: true,
@@ -207,7 +212,7 @@ func TestPost(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := Post(tt.args.rawurl, tt.args.options...)
+			resp, err := Post(tt.args.urlStr, tt.args.options...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Post() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -240,7 +245,7 @@ func TestPatch(t *testing.T) {
 	}))
 	defer testServer.Close()
 	type args struct {
-		rawurl  string
+		urlStr  string
 		options []Option
 	}
 	tests := []struct {
@@ -253,13 +258,13 @@ func TestPatch(t *testing.T) {
 		{
 			name: "patch test case 1",
 			args: args{
-				rawurl: testServer.URL,
+				urlStr: testServer.URL,
 				options: []Option{
 					JSON(map[string]interface{}{
 						"status":  0,
 						"message": "hello http patch",
 					}),
-					Timeout(120),
+					Timeout(120 * time.Second),
 				},
 			},
 			wantErr: false,
@@ -267,13 +272,13 @@ func TestPatch(t *testing.T) {
 		{
 			name: "patch test case 2",
 			args: args{
-				rawurl: "http://127.0.0.1:11111/unknown",
+				urlStr: "http://127.0.0.1:11111/unknown",
 				options: []Option{
 					JSON(map[string]interface{}{
 						"status":  0,
 						"message": "hello http patch",
 					}),
-					Timeout(120),
+					Timeout(120 * time.Second),
 				},
 			},
 			wantErr: true,
@@ -281,7 +286,7 @@ func TestPatch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := Patch(tt.args.rawurl, tt.args.options...)
+			resp, err := Patch(tt.args.urlStr, tt.args.options...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Patch() error = %v, wantErr %v", err, tt.wantErr)
 				return

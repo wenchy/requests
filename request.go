@@ -17,22 +17,22 @@ import (
 )
 
 // request sends an HTTP request.
-func request(method, rawurl string, options ...Option) (*Response, error) {
+func request(method, urlStr string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
 	if len(opts.Params) != 0 {
-		// check raw url, should not contain character '?'
-		if strings.Contains(rawurl, "?") {
-			return nil, errors.New("params not nil, so raw url should not contain character '?'")
+		// check raw URL, should not contain character '?'
+		if strings.Contains(urlStr, "?") {
+			return nil, errors.New("params not nil, so raw URL should not contain character '?'")
 		}
 		queryValues := url.Values{}
 		for k, v := range opts.Params {
 			queryValues.Add(k, v)
 		}
 		queryString := queryValues.Encode()
-		rawurl += "?" + queryString
+		urlStr += "?" + queryString
 	}
 
-	req, err := http.NewRequest(method, rawurl, opts.Body)
+	req, err := http.NewRequest(method, urlStr, opts.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func request(method, rawurl string, options ...Option) (*Response, error) {
 
 // requestData sends an HTTP request to the specified URL, with raw string
 // as the request body.
-func requestData(method, rawurl string, options ...Option) (*Response, error) {
+func requestData(method, urlStr string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
 	var body *strings.Reader
 	if opts.Data != nil {
@@ -130,7 +130,7 @@ func requestData(method, rawurl string, options ...Option) (*Response, error) {
 
 	// options = append(options, Headers(opts.Headers))
 	options = append(options, Body(body))
-	r, err := request(method, rawurl, options...)
+	r, err := request(method, urlStr, options...)
 	if err != nil {
 		return r, err
 	}
@@ -140,7 +140,7 @@ func requestData(method, rawurl string, options ...Option) (*Response, error) {
 
 // requestForm sends an HTTP request to the specified URL, with form's keys and
 // values URL-encoded as the request body.
-func requestForm(method, rawurl string, options ...Option) (*Response, error) {
+func requestForm(method, urlStr string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
 	var body *strings.Reader
 	if opts.Form != nil {
@@ -154,7 +154,7 @@ func requestForm(method, rawurl string, options ...Option) (*Response, error) {
 
 	options = append(options, Headers(opts.Headers))
 	options = append(options, Body(body))
-	r, err := request(method, rawurl, options...)
+	r, err := request(method, urlStr, options...)
 	if err != nil {
 		return r, err
 	}
@@ -163,7 +163,7 @@ func requestForm(method, rawurl string, options ...Option) (*Response, error) {
 }
 
 // requestJSON sends an HTTP request, and encode request body as json.
-func requestJSON(method, rawurl string, options ...Option) (*Response, error) {
+func requestJSON(method, url string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
 	var body *bytes.Buffer
 	if opts.JSON != nil {
@@ -178,7 +178,7 @@ func requestJSON(method, rawurl string, options ...Option) (*Response, error) {
 
 	options = append(options, Headers(opts.Headers))
 	options = append(options, Body(body))
-	r, err := request(method, rawurl, options...)
+	r, err := request(method, url, options...)
 	if err != nil {
 		return r, err
 	}
@@ -187,7 +187,7 @@ func requestJSON(method, rawurl string, options ...Option) (*Response, error) {
 }
 
 // requestFiles sends an uploading request for multiple multipart-encoded files.
-func requestFiles(method, rawurl string, options ...Option) (*Response, error) {
+func requestFiles(method, url string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
 	var body bytes.Buffer
 	bodyWriter := multipart.NewWriter(&body)
@@ -204,75 +204,75 @@ func requestFiles(method, rawurl string, options ...Option) (*Response, error) {
 	}
 
 	opts.Headers["Content-Type"] = bodyWriter.FormDataContentType()
-
+	
 	options = append(options, Headers(opts.Headers))
 	options = append(options, Body(&body))
 	// write EOF before sending
 	if err := bodyWriter.Close(); err != nil {
 		return nil, err
 	}
-	return request(method, rawurl, options...)
+	return request(method, url, options...)
 }
 
 // Get sends an HTTP GET request.
-func Get(rawurl string, options ...Option) (*Response, error) {
-	return request(http.MethodGet, rawurl, options...)
+func Get(url string, options ...Option) (*Response, error) {
+	return request(http.MethodGet, url, options...)
 }
 
 // Post sends an HTTP POST request.
-func Post(rawurl string, options ...Option) (*Response, error) {
+func Post(url string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
 	if opts.Data != nil {
-		return requestData(http.MethodPost, rawurl, options...)
+		return requestData(http.MethodPost, url, options...)
 	} else if opts.Form != nil {
-		return requestForm(http.MethodPost, rawurl, options...)
+		return requestForm(http.MethodPost, url, options...)
 	} else if opts.JSON != nil {
-		return requestJSON(http.MethodPost, rawurl, options...)
+		return requestJSON(http.MethodPost, url, options...)
 	} else if opts.Files != nil {
-		return requestFiles(http.MethodPost, rawurl, options...)
+		return requestFiles(http.MethodPost, url, options...)
 	} else {
-		return request(http.MethodPost, rawurl, options...)
+		return request(http.MethodPost, url, options...)
 	}
 }
 
 // Put sends an HTTP PUT request.
-func Put(rawurl string, options ...Option) (*Response, error) {
+func Put(url string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
 	if opts.Data != nil {
-		return requestData(http.MethodPut, rawurl, options...)
+		return requestData(http.MethodPut, url, options...)
 	} else if opts.Form != nil {
-		return requestForm(http.MethodPut, rawurl, options...)
+		return requestForm(http.MethodPut, url, options...)
 	} else if opts.JSON != nil {
-		return requestJSON(http.MethodPut, rawurl, options...)
+		return requestJSON(http.MethodPut, url, options...)
 	} else {
-		return request(http.MethodPut, rawurl, options...)
+		return request(http.MethodPut, url, options...)
 	}
 }
 
 // Patch sends an HTTP PATCH request.
-func Patch(rawurl string, options ...Option) (*Response, error) {
+func Patch(url string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
 	if opts.Data != nil {
-		return requestData(http.MethodPatch, rawurl, options...)
+		return requestData(http.MethodPatch, url, options...)
 	} else if opts.Form != nil {
-		return requestForm(http.MethodPatch, rawurl, options...)
+		return requestForm(http.MethodPatch, url, options...)
 	} else if opts.JSON != nil {
-		return requestJSON(http.MethodPatch, rawurl, options...)
+		return requestJSON(http.MethodPatch, url, options...)
 	} else {
-		return request(http.MethodPatch, rawurl, options...)
+		return request(http.MethodPatch, url, options...)
 	}
 }
 
 // Delete sends an HTTP DELETE request.
-func Delete(rawurl string, options ...Option) (*Response, error) {
+func Delete(url string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
 	if opts.Data != nil {
-		return requestData(http.MethodDelete, rawurl, options...)
+		return requestData(http.MethodDelete, url, options...)
 	} else if opts.Form != nil {
-		return requestForm(http.MethodDelete, rawurl, options...)
+		return requestForm(http.MethodDelete, url, options...)
 	} else if opts.JSON != nil {
-		return requestJSON(http.MethodDelete, rawurl, options...)
+		return requestJSON(http.MethodDelete, url, options...)
 	} else {
-		return request(http.MethodDelete, rawurl, options...)
+		return request(http.MethodDelete, url, options...)
 	}
 }
