@@ -9,18 +9,16 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"errors"
 )
 
 // request sends an HTTP request.
-func request(method, rawurl string, setters ...Option) (*Response, error) {
-	opts := parseOptions(setters...)
+func request(method, rawurl string, options ...Option) (*Response, error) {
+	opts := parseOptions(options...)
 	if len(opts.Params) != 0 {
 		// check raw url, should not contain character '?'
 		if strings.Contains(rawurl, "?") {
@@ -46,26 +44,54 @@ func request(method, rawurl string, setters ...Option) (*Response, error) {
 		}
 	}
 
+	// TODO(wenchy): some other auth types
 	if opts.Auth.authType == HTTPBasicAuth {
 		req.SetBasicAuth(opts.Auth.username, opts.Auth.password)
 	}
-	// TODO(wenchy): some other auth types
-	transport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		DisableKeepAlives:     opts.DisableKeepAlives,
+
+	// NOTE: Keep-Alive & Connection Pooling
+	//
+	// 1. Keep-Alive
+	//
+	// 	The net/http Transport documentation uses the term to refer to
+	//  persistent connections. A keep-alive or persistent connection
+	//  is a connection that can be used for more than one HTTP
+	//  transaction.
+	//
+	// 	The Transport.IdleConnTimeout field specifies how long the
+	//  transport keeps an unused connection in the pool before closing
+	//  the connection.
+	//
+	//  The net Dialer documentation uses the keep-alive term to refer
+	//  the TCP feature for probing the health of a connection.
+	// 	Dialer.KeepAlive field specifies how frequently TCP keep-alive
+	//  probes are sent to the peer.
+	//
+	// 2. Connection Pooling
+	//
+	//  Connections are added to the pool in the function
+	//  Transport.tryPutIdleConn. The connection is not pooled if
+	//  Transport.DisableKeepAlives is true or Transport.MaxIdleConnsPerHost
+	//  is less than zero.
+	//
+	//  Setting either value disables pooling. The transport adds the
+	//  "Connection: close" request header when DisableKeepAlives is true.
+	//  This may or may not be desirable depending on what you are testing.
+	//
+	// 3. References:
+	//
+	// - https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
+	// - https://stackoverflow.com/questions/59656164/what-is-the-difference-between-net-dialerkeepalive-and-http-transportidletimeo
+	transport := env.DefaultTransport
+	if opts.DisableKeepAlives {
+		// If option DisableKeepAlives set as true, then clone a new transport
+		// just for this one-off HTTP request.
+		transport = env.DefaultTransport.Clone()
+		transport.DisableKeepAlives = true
 	}
 	client := &http.Client{
 		CheckRedirect: redirectPolicyFunc,
-		Timeout:       time.Duration(opts.Timeout) * time.Second,
+		Timeout:       opts.Timeout,
 		Transport:     transport,
 	}
 
@@ -92,8 +118,8 @@ func request(method, rawurl string, setters ...Option) (*Response, error) {
 
 // requestData sends an HTTP request to the specified URL, with raw string
 // as the request body.
-func requestData(method, rawurl string, setters ...Option) (*Response, error) {
-	opts := parseOptions(setters...)
+func requestData(method, rawurl string, options ...Option) (*Response, error) {
+	opts := parseOptions(options...)
 	var body *strings.Reader
 	if opts.Data != nil {
 		d := fmt.Sprintf("%v", opts.Data)
@@ -102,9 +128,9 @@ func requestData(method, rawurl string, setters ...Option) (*Response, error) {
 	// TODO: judge content type
 	// opts.Headers["Content-Type"] = "application/x-www-form-urlencoded"
 
-	// setters = append(setters, Headers(opts.Headers))
-	setters = append(setters, Body(body))
-	r, err := request(method, rawurl, setters...)
+	// options = append(options, Headers(opts.Headers))
+	options = append(options, Body(body))
+	r, err := request(method, rawurl, options...)
 	if err != nil {
 		return r, err
 	}
@@ -114,8 +140,8 @@ func requestData(method, rawurl string, setters ...Option) (*Response, error) {
 
 // requestForm sends an HTTP request to the specified URL, with form's keys and
 // values URL-encoded as the request body.
-func requestForm(method, rawurl string, setters ...Option) (*Response, error) {
-	opts := parseOptions(setters...)
+func requestForm(method, rawurl string, options ...Option) (*Response, error) {
+	opts := parseOptions(options...)
 	var body *strings.Reader
 	if opts.Form != nil {
 		formValues := url.Values{}
@@ -126,9 +152,9 @@ func requestForm(method, rawurl string, setters ...Option) (*Response, error) {
 	}
 	opts.Headers["Content-Type"] = "application/x-www-form-urlencoded"
 
-	setters = append(setters, Headers(opts.Headers))
-	setters = append(setters, Body(body))
-	r, err := request(method, rawurl, setters...)
+	options = append(options, Headers(opts.Headers))
+	options = append(options, Body(body))
+	r, err := request(method, rawurl, options...)
 	if err != nil {
 		return r, err
 	}
@@ -137,8 +163,8 @@ func requestForm(method, rawurl string, setters ...Option) (*Response, error) {
 }
 
 // requestJSON sends an HTTP request, and encode request body as json.
-func requestJSON(method, rawurl string, setters ...Option) (*Response, error) {
-	opts := parseOptions(setters...)
+func requestJSON(method, rawurl string, options ...Option) (*Response, error) {
+	opts := parseOptions(options...)
 	var body *bytes.Buffer
 	if opts.JSON != nil {
 		reqBytes, err := json.Marshal(opts.JSON)
@@ -150,9 +176,9 @@ func requestJSON(method, rawurl string, setters ...Option) (*Response, error) {
 
 	opts.Headers["Content-Type"] = "application/json"
 
-	setters = append(setters, Headers(opts.Headers))
-	setters = append(setters, Body(body))
-	r, err := request(method, rawurl, setters...)
+	options = append(options, Headers(opts.Headers))
+	options = append(options, Body(body))
+	r, err := request(method, rawurl, options...)
 	if err != nil {
 		return r, err
 	}
@@ -161,8 +187,8 @@ func requestJSON(method, rawurl string, setters ...Option) (*Response, error) {
 }
 
 // requestFiles sends an uploading request for multiple multipart-encoded files.
-func requestFiles(method, rawurl string, setters ...Option) (*Response, error) {
-	opts := parseOptions(setters...)
+func requestFiles(method, rawurl string, options ...Option) (*Response, error) {
+	opts := parseOptions(options...)
 	var body bytes.Buffer
 	bodyWriter := multipart.NewWriter(&body)
 	if opts.Files != nil {
@@ -179,74 +205,74 @@ func requestFiles(method, rawurl string, setters ...Option) (*Response, error) {
 
 	opts.Headers["Content-Type"] = bodyWriter.FormDataContentType()
 
-	setters = append(setters, Headers(opts.Headers))
-	setters = append(setters, Body(&body))
+	options = append(options, Headers(opts.Headers))
+	options = append(options, Body(&body))
 	// write EOF before sending
 	if err := bodyWriter.Close(); err != nil {
 		return nil, err
 	}
-	return request(method, rawurl, setters...)
+	return request(method, rawurl, options...)
 }
 
 // Get sends an HTTP GET request.
-func Get(rawurl string, setters ...Option) (*Response, error) {
-	return request(http.MethodGet, rawurl, setters...)
+func Get(rawurl string, options ...Option) (*Response, error) {
+	return request(http.MethodGet, rawurl, options...)
 }
 
 // Post sends an HTTP POST request.
-func Post(rawurl string, setters ...Option) (*Response, error) {
-	opts := parseOptions(setters...)
+func Post(rawurl string, options ...Option) (*Response, error) {
+	opts := parseOptions(options...)
 	if opts.Data != nil {
-		return requestData(http.MethodPost, rawurl, setters...)
+		return requestData(http.MethodPost, rawurl, options...)
 	} else if opts.Form != nil {
-		return requestForm(http.MethodPost, rawurl, setters...)
+		return requestForm(http.MethodPost, rawurl, options...)
 	} else if opts.JSON != nil {
-		return requestJSON(http.MethodPost, rawurl, setters...)
+		return requestJSON(http.MethodPost, rawurl, options...)
 	} else if opts.Files != nil {
-		return requestFiles(http.MethodPost, rawurl, setters...)
+		return requestFiles(http.MethodPost, rawurl, options...)
 	} else {
-		return request(http.MethodPost, rawurl, setters...)
+		return request(http.MethodPost, rawurl, options...)
 	}
 }
 
 // Put sends an HTTP PUT request.
-func Put(rawurl string, setters ...Option) (*Response, error) {
-	opts := parseOptions(setters...)
+func Put(rawurl string, options ...Option) (*Response, error) {
+	opts := parseOptions(options...)
 	if opts.Data != nil {
-		return requestData(http.MethodPut, rawurl, setters...)
+		return requestData(http.MethodPut, rawurl, options...)
 	} else if opts.Form != nil {
-		return requestForm(http.MethodPut, rawurl, setters...)
+		return requestForm(http.MethodPut, rawurl, options...)
 	} else if opts.JSON != nil {
-		return requestJSON(http.MethodPut, rawurl, setters...)
+		return requestJSON(http.MethodPut, rawurl, options...)
 	} else {
-		return request(http.MethodPut, rawurl, setters...)
+		return request(http.MethodPut, rawurl, options...)
 	}
 }
 
 // Patch sends an HTTP PATCH request.
-func Patch(rawurl string, setters ...Option) (*Response, error) {
-	opts := parseOptions(setters...)
+func Patch(rawurl string, options ...Option) (*Response, error) {
+	opts := parseOptions(options...)
 	if opts.Data != nil {
-		return requestData(http.MethodPatch, rawurl, setters...)
+		return requestData(http.MethodPatch, rawurl, options...)
 	} else if opts.Form != nil {
-		return requestForm(http.MethodPatch, rawurl, setters...)
+		return requestForm(http.MethodPatch, rawurl, options...)
 	} else if opts.JSON != nil {
-		return requestJSON(http.MethodPatch, rawurl, setters...)
+		return requestJSON(http.MethodPatch, rawurl, options...)
 	} else {
-		return request(http.MethodPatch, rawurl, setters...)
+		return request(http.MethodPatch, rawurl, options...)
 	}
 }
 
 // Delete sends an HTTP DELETE request.
-func Delete(rawurl string, setters ...Option) (*Response, error) {
-	opts := parseOptions(setters...)
+func Delete(rawurl string, options ...Option) (*Response, error) {
+	opts := parseOptions(options...)
 	if opts.Data != nil {
-		return requestData(http.MethodDelete, rawurl, setters...)
+		return requestData(http.MethodDelete, rawurl, options...)
 	} else if opts.Form != nil {
-		return requestForm(http.MethodDelete, rawurl, setters...)
+		return requestForm(http.MethodDelete, rawurl, options...)
 	} else if opts.JSON != nil {
-		return requestJSON(http.MethodDelete, rawurl, setters...)
+		return requestJSON(http.MethodDelete, rawurl, options...)
 	} else {
-		return request(http.MethodDelete, rawurl, setters...)
+		return request(http.MethodDelete, rawurl, options...)
 	}
 }

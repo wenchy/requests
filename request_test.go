@@ -24,7 +24,7 @@ func TestGet(t *testing.T) {
 	defer testServer.Close()
 	type args struct {
 		url     string
-		setters []Option
+		options []Option
 		timeout int64
 	}
 	tests := []struct {
@@ -38,7 +38,7 @@ func TestGet(t *testing.T) {
 			name: "test case 1",
 			args: args{
 				url: "https://www.google.com",
-				setters: []Option{
+				options: []Option{
 					BasicAuth("XXX", "OOO"),
 				},
 				timeout: 5,
@@ -49,7 +49,7 @@ func TestGet(t *testing.T) {
 			name: "test case 2",
 			args: args{
 				url: "https://127.0.0.1:4004",
-				setters: []Option{
+				options: []Option{
 					Timeout(120),
 				},
 			},
@@ -59,7 +59,7 @@ func TestGet(t *testing.T) {
 			name: "test case 3",
 			args: args{
 				url: testServer.URL,
-				setters: []Option{
+				options: []Option{
 					ParamPairs("param1", "value1"),
 					ParamPairs("param2", "value2"),
 					HeaderPairs("header1", "value1"),
@@ -73,7 +73,7 @@ func TestGet(t *testing.T) {
 			name: "disable keep alive",
 			args: args{
 				url: testServer.URL,
-				setters: []Option{
+				options: []Option{
 					ParamPairs("param1", "value1"),
 					ParamPairs("param2", "value2"),
 					HeaderPairs("header1", "value1"),
@@ -90,7 +90,7 @@ func TestGet(t *testing.T) {
 			if tt.args.timeout != 0 {
 				SetEnvTimeout(tt.args.timeout)
 			}
-			got, err := Get(tt.args.url, tt.args.setters...)
+			got, err := Get(tt.args.url, tt.args.options...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -167,7 +167,7 @@ func TestPost(t *testing.T) {
 
 	type args struct {
 		rawurl  string
-		setters []Option
+		options []Option
 	}
 	tests := []struct {
 		name    string
@@ -180,7 +180,7 @@ func TestPost(t *testing.T) {
 			name: "upload file test case 1",
 			args: args{
 				rawurl: testServer.URL,
-				setters: []Option{
+				options: []Option{
 					Files(map[string]*os.File{
 						"file1": fh1,
 						"file2": fh2,
@@ -194,7 +194,7 @@ func TestPost(t *testing.T) {
 			name: "upload file test case 2",
 			args: args{
 				rawurl: "http://127.0.0.1:11111/unknown",
-				setters: []Option{
+				options: []Option{
 					Files(map[string]*os.File{
 						"file1": fh1,
 						"file2": fh2,
@@ -207,7 +207,7 @@ func TestPost(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := Post(tt.args.rawurl, tt.args.setters...)
+			resp, err := Post(tt.args.rawurl, tt.args.options...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Post() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -241,7 +241,7 @@ func TestPatch(t *testing.T) {
 	defer testServer.Close()
 	type args struct {
 		rawurl  string
-		setters []Option
+		options []Option
 	}
 	tests := []struct {
 		name    string
@@ -254,7 +254,7 @@ func TestPatch(t *testing.T) {
 			name: "patch test case 1",
 			args: args{
 				rawurl: testServer.URL,
-				setters: []Option{
+				options: []Option{
 					JSON(map[string]interface{}{
 						"status":  0,
 						"message": "hello http patch",
@@ -268,7 +268,7 @@ func TestPatch(t *testing.T) {
 			name: "patch test case 2",
 			args: args{
 				rawurl: "http://127.0.0.1:11111/unknown",
-				setters: []Option{
+				options: []Option{
 					JSON(map[string]interface{}{
 						"status":  0,
 						"message": "hello http patch",
@@ -281,7 +281,7 @@ func TestPatch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := Patch(tt.args.rawurl, tt.args.setters...)
+			resp, err := Patch(tt.args.rawurl, tt.args.options...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Patch() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -13,7 +13,7 @@ type Response struct {
 	bodyClosed bool
 }
 
-// StatusCode get status code of HTTP response.
+// StatusCode returns status code of HTTP response.
 func (r *Response) StatusCode() int {
 	if r.resp == nil {
 		return http.StatusServiceUnavailable
@@ -21,12 +21,12 @@ func (r *Response) StatusCode() int {
 	return r.resp.StatusCode
 }
 
-// Raw get the raw socket response from the server.
+// Raw returns raw body of response.
 func (r *Response) Raw() io.ReadCloser {
 	return r.resp.Body
 }
 
-// Bytes returns the HTTP response body as []byte.
+// Bytes parses the HTTP response body as []byte.
 func (r *Response) Bytes() ([]byte, error) {
 	if !r.bodyClosed {
 		if err := r.readAll(); err != nil {
@@ -36,7 +36,7 @@ func (r *Response) Bytes() ([]byte, error) {
 	return r.body, nil
 }
 
-// Text returns the HTTP response body as string.
+// Text parses the HTTP response body as string.
 func (r *Response) Text() (string, error) {
 	if !r.bodyClosed {
 		if err := r.readAll(); err != nil {
@@ -56,7 +56,7 @@ func (r *Response) JSON(v interface{}) error {
 	return json.Unmarshal(r.body, v)
 }
 
-// readAll drains all the HTTP response body read stream and close the stream.
+// readAll drains all the HTTP response body read stream and then closes it.
 func (r *Response) readAll() error {
 	var err error
 	r.body, err = io.ReadAll(r.resp.Body)

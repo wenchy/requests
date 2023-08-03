@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 )
 
 // Options is the optional parameters for HTTP request.
@@ -22,8 +23,8 @@ type Options struct {
 
 	// auth
 	Auth Auth
-	// timeout seconds
-	Timeout int64
+	// request timeout
+	Timeout time.Duration
 
 	DisableKeepAlives bool
 }
@@ -173,7 +174,7 @@ func Files(files map[string]*os.File) Option {
 // interrupt reading of the Response.Body.
 //
 // A Timeout of zero means no timeout. Default is 60s.
-func Timeout(timeout int64) Option {
+func Timeout(timeout time.Duration) Option {
 	return func(opts *Options) {
 		opts.Timeout = timeout
 	}
@@ -199,10 +200,10 @@ func newDefaultOptions() *Options {
 	}
 }
 
-func parseOptions(setters ...Option) *Options {
+func parseOptions(options ...Option) *Options {
 	// Default Options
 	opts := newDefaultOptions()
-	for _, setter := range setters {
+	for _, setter := range options {
 		setter(opts)
 	}
 	return opts
