@@ -3,7 +3,7 @@ package requests
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -110,8 +110,8 @@ func TestGet(t *testing.T) {
 }
 
 func TestPost(t *testing.T) {
-	filename1 := "./test/data/file1.txt"
-	filename2 := "./test/data/file2.txt"
+	filename1 := "./testdata/file1.txt"
+	filename2 := "./testdata/file2.txt"
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handleUpload := func(formKey string) error {
 			file, header, err := r.FormFile(formKey)
@@ -119,11 +119,11 @@ func TestPost(t *testing.T) {
 				return errors.Wrapf(err, "get form file: %s failed", formKey)
 			}
 			defer file.Close()
-			got, err := ioutil.ReadAll(file)
+			got, err := io.ReadAll(file)
 			if err != nil {
 				return errors.Wrap(err, "read all failed")
 			}
-			src, err := ioutil.ReadFile(header.Filename)
+			src, err := os.ReadFile(header.Filename)
 			if err != nil {
 				return errors.Wrapf(err, "read file: %s failed", header.Filename)
 			}
@@ -152,18 +152,18 @@ func TestPost(t *testing.T) {
 	defer testServer.Close()
 
 	fh1, err := os.Open(filename1)
-	defer fh1.Close()
 	if err != nil {
 		t.Errorf("open file: %s failed: %+v", filename1, err)
 		return
 	}
+	defer fh1.Close()
 
 	fh2, err := os.Open(filename2)
-	defer fh2.Close()
 	if err != nil {
 		t.Errorf("open file: %s failed: %+v", filename2, err)
 		return
 	}
+	defer fh2.Close()
 
 	type args struct {
 		rawurl  string
@@ -229,7 +229,7 @@ func TestPatch(t *testing.T) {
 		if r.Method != http.MethodPatch {
 			t.Errorf("method is not PATCH: %s", r.Method)
 		}
-		b, err := ioutil.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
 		if err != nil {
 			t.Errorf("read body failed: %+v", err)
 		}

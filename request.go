@@ -18,10 +18,10 @@ import (
 	"errors"
 )
 
-// request issues an HTTP request.
+// request sends an HTTP request.
 func request(method, rawurl string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
-	if opts.Params != nil && len(opts.Params) != 0 {
+	if len(opts.Params) != 0 {
 		// check raw url, should not contain character '?'
 		if strings.Contains(rawurl, "?") {
 			return nil, errors.New("params not nil, so raw url should not contain character '?'")
@@ -69,31 +69,28 @@ func request(method, rawurl string, setters ...Option) (*Response, error) {
 		Transport:     transport,
 	}
 
-	// fmt.Printf("timeout: %d\n", opts.Timeout)
-	rsp, err := client.Do(req)
+	// If the returned error is nil, the Response will contain
+	// a non-nil Body which the user is expected to close.
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
-	if rsp == nil {
-		return nil, errors.New("response is nil")
-	}
-
 	// wrap response
 	r := &Response{
-		rsp: rsp,
+		resp: resp,
 	}
 	// return error with status and text body embedded if status code
 	// is not 2XX, and response is also returned.
-	if rsp.StatusCode < http.StatusOK || rsp.StatusCode > http.StatusIMUsed {
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		txt, _ := r.Text()
-		return r, errors.New(rsp.Status + " " + txt)
+		return r, errors.New(resp.Status + " " + txt)
 	}
 
 	return r, nil
 }
 
-// requestData issues an HTTP request to the specified URL, with raw string
+// requestData sends an HTTP request to the specified URL, with raw string
 // as the request body.
 func requestData(method, rawurl string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
@@ -115,7 +112,7 @@ func requestData(method, rawurl string, setters ...Option) (*Response, error) {
 	return r, nil
 }
 
-// requestForm issues an HTTP request to the specified URL, with form's keys and
+// requestForm sends an HTTP request to the specified URL, with form's keys and
 // values URL-encoded as the request body.
 func requestForm(method, rawurl string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
@@ -139,7 +136,7 @@ func requestForm(method, rawurl string, setters ...Option) (*Response, error) {
 	return r, nil
 }
 
-// requestJSON issues an HTTP request, and encode request body as json.
+// requestJSON sends an HTTP request, and encode request body as json.
 func requestJSON(method, rawurl string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
 	var body *bytes.Buffer
@@ -163,7 +160,7 @@ func requestJSON(method, rawurl string, setters ...Option) (*Response, error) {
 	return r, nil
 }
 
-// requestFiles issues an uploading request for multiple multipart-encoded files.
+// requestFiles sends an uploading request for multiple multipart-encoded files.
 func requestFiles(method, rawurl string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
 	var body bytes.Buffer
@@ -191,12 +188,12 @@ func requestFiles(method, rawurl string, setters ...Option) (*Response, error) {
 	return request(method, rawurl, setters...)
 }
 
-// Get issues an HTTP GET request.
+// Get sends an HTTP GET request.
 func Get(rawurl string, setters ...Option) (*Response, error) {
 	return request(http.MethodGet, rawurl, setters...)
 }
 
-// Post issues an HTTP POST request.
+// Post sends an HTTP POST request.
 func Post(rawurl string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
 	if opts.Data != nil {
@@ -212,7 +209,7 @@ func Post(rawurl string, setters ...Option) (*Response, error) {
 	}
 }
 
-// Put issues an HTTP PUT request.
+// Put sends an HTTP PUT request.
 func Put(rawurl string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
 	if opts.Data != nil {
@@ -226,7 +223,7 @@ func Put(rawurl string, setters ...Option) (*Response, error) {
 	}
 }
 
-// Patch issues an HTTP PATCH request.
+// Patch sends an HTTP PATCH request.
 func Patch(rawurl string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
 	if opts.Data != nil {
@@ -240,7 +237,7 @@ func Patch(rawurl string, setters ...Option) (*Response, error) {
 	}
 }
 
-// Delete issues an HTTP DELETE request.
+// Delete sends an HTTP DELETE request.
 func Delete(rawurl string, setters ...Option) (*Response, error) {
 	opts := parseOptions(setters...)
 	if opts.Data != nil {
