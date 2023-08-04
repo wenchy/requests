@@ -1,10 +1,10 @@
 # requests
+[![GoDoc](https://godoc.org/github.com/carlmjohnson/requests?status.svg)](https://pkg.go.dev/github.com/Wenchy/requests) 
+[![Go Report Card](https://goreportcard.com/badge/github.com/carlmjohnson/requests)](https://goreportcard.com/report/github.com/Wenchy/requests)
+[![Coverage Status](https://codecov.io/gh/Wenchy/requests/branch/master/graph/badge.svg)](https://codecov.io/gh/Wenchy/requests) 
+[![License](https://img.shields.io/github/license/Wenchy/requests?style=flat-square)](https://opensource.org/licenses/MIT)
 
-An elegant and simple HTTP library for golang, built for human beings.
-
-This package mimics the implementation of the well-known Python package [Requests: HTTP for Humans™](https://requests.readthedocs.io/).
-
-Click to read [documentation](https://pkg.go.dev/github.com/Wenchy/requests@master).
+An elegant and simple HTTP client package, which learned a lot from the well-known Python package [Requests: HTTP for Humans™](https://requests.readthedocs.io/).
 
 ## Why not just use the standard library HTTP client?
 
