@@ -5,12 +5,12 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"github.com/Wenchy/requests/internal/auth"
 )
 
-// Options is the optional parameters for HTTP request.
-//
-// Follow the design of Functional Options(https://github.com/tmrts/go-patterns/blob/master/idiom/functional-options.md)
-type Options struct {
+// httpOptions defines all optional parameters for HTTP request.
+type httpOptions struct {
 	Headers map[string]string
 	Params  map[string]string
 	// body
@@ -22,7 +22,7 @@ type Options struct {
 	Files map[string]*os.File
 
 	// auth
-	Auth Auth
+	AuthInfo *auth.AuthInfo
 	// request timeout
 	Timeout time.Duration
 
@@ -30,11 +30,11 @@ type Options struct {
 }
 
 // Option is the functional option type.
-type Option func(*Options)
+type Option func(*httpOptions)
 
 // Headers sets the HTTP headers.
 func Headers(headers map[string]string) Option {
-	return func(opts *Options) {
+	return func(opts *httpOptions) {
 		if opts.Headers != nil {
 			for k, v := range headers {
 				opts.Headers[k] = v
@@ -65,7 +65,7 @@ func HeaderPairs(kv ...string) Option {
 
 // Params sets the given params into the URL querystring.
 func Params(params map[string]string) Option {
-	return func(opts *Options) {
+	return func(opts *httpOptions) {
 		if opts.Params != nil {
 			for k, v := range params {
 				opts.Params[k] = v
@@ -96,14 +96,14 @@ func ParamPairs(kv ...string) Option {
 
 // Body sets io.Reader to hold request body.
 func Body(body io.Reader) Option {
-	return func(opts *Options) {
+	return func(opts *httpOptions) {
 		opts.Body = body
 	}
 }
 
 // Data sets raw string into the request body.
 func Data(data interface{}) Option {
-	return func(opts *Options) {
+	return func(opts *httpOptions) {
 		opts.Data = data
 	}
 }
@@ -111,7 +111,7 @@ func Data(data interface{}) Option {
 // Form sets the given form into the request body.
 // It also sets the Content-Type as "application/x-www-form-urlencoded".
 func Form(form map[string]string) Option {
-	return func(opts *Options) {
+	return func(opts *httpOptions) {
 		opts.Form = form
 	}
 }
@@ -137,18 +137,18 @@ func FormPairs(kv ...string) Option {
 // JSON serializes the given struct as JSON into the request body.
 // It also sets the Content-Type as "application/json".
 func JSON(obj interface{}) Option {
-	return func(opts *Options) {
+	return func(opts *httpOptions) {
 		opts.JSON = obj
 	}
 }
 
 // BasicAuth is the option to implement HTTP Basic Auth.
 func BasicAuth(username, password string) Option {
-	return func(opts *Options) {
-		opts.Auth = Auth{
-			authType: HTTPBasicAuth,
-			username: username,
-			password: password,
+	return func(opts *httpOptions) {
+		opts.AuthInfo = &auth.AuthInfo{
+			Type:     auth.BasicAuth,
+			Username: username,
+			Password: password,
 		}
 	}
 }
@@ -156,7 +156,7 @@ func BasicAuth(username, password string) Option {
 // Files sets files to a map of (field, fileHandler).
 // It also sets the Content-Type as "multipart/form-data".
 func Files(files map[string]*os.File) Option {
-	return func(opts *Options) {
+	return func(opts *httpOptions) {
 		if opts.Files != nil {
 			for k, v := range files {
 				opts.Files[k] = v
@@ -175,7 +175,7 @@ func Files(files map[string]*os.File) Option {
 //
 // A Timeout of zero means no timeout. Default is 60s.
 func Timeout(timeout time.Duration) Option {
-	return func(opts *Options) {
+	return func(opts *httpOptions) {
 		opts.Timeout = timeout
 	}
 }
@@ -185,13 +185,14 @@ func Timeout(timeout time.Duration) Option {
 //
 // This is unrelated to the similarly named TCP keep-alives.
 func DisableKeepAlives() Option {
-	return func(opts *Options) {
+	return func(opts *httpOptions) {
 		opts.DisableKeepAlives = true
 	}
 }
 
-func newDefaultOptions() *Options {
-	return &Options{
+// newDefaultOptions creates a new default HTTP options.
+func newDefaultOptions() *httpOptions {
+	return &httpOptions{
 		Headers: map[string]string{},
 		Params:  map[string]string{},
 		Form:    nil,
@@ -200,8 +201,7 @@ func newDefaultOptions() *Options {
 	}
 }
 
-func parseOptions(options ...Option) *Options {
-	// Default Options
+func parseOptions(options ...Option) *httpOptions {
 	opts := newDefaultOptions()
 	for _, setter := range options {
 		setter(opts)

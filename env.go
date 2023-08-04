@@ -6,12 +6,12 @@ import (
 	"time"
 )
 
-type Env struct {
+type environment struct {
 	Timeout          time.Duration
 	DefaultTransport *http.Transport
 }
 
-var env Env
+var env environment
 
 func init() {
 	env.Timeout = 60 * time.Second // default timeout
@@ -31,6 +31,8 @@ func init() {
 	}
 }
 
+// SetEnvTimeout sets the default timeout for each HTTP request at
+// the environment level.
 func SetEnvTimeout(timeout time.Duration) {
 	env.Timeout = timeout
 }

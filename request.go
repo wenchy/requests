@@ -14,6 +14,9 @@ import (
 	"strings"
 
 	"errors"
+
+	"github.com/Wenchy/requests/internal/auth"
+	"github.com/Wenchy/requests/internal/auth/redirector"
 )
 
 // request sends an HTTP request.
@@ -44,9 +47,11 @@ func request(method, urlStr string, options ...Option) (*Response, error) {
 		}
 	}
 
-	// TODO(wenchy): some other auth types
-	if opts.Auth.authType == HTTPBasicAuth {
-		req.SetBasicAuth(opts.Auth.username, opts.Auth.password)
+	if opts.AuthInfo != nil {
+		// TODO(wenchy): some other auth types
+		if opts.AuthInfo.Type == auth.BasicAuth {
+			req.SetBasicAuth(opts.AuthInfo.Username, opts.AuthInfo.Password)
+		}
 	}
 
 	// NOTE: Keep-Alive & Connection Pooling
@@ -90,7 +95,7 @@ func request(method, urlStr string, options ...Option) (*Response, error) {
 		transport.DisableKeepAlives = true
 	}
 	client := &http.Client{
-		CheckRedirect: redirectPolicyFunc,
+		CheckRedirect: redirector.RedirectPolicyFunc,
 		Timeout:       opts.Timeout,
 		Transport:     transport,
 	}
