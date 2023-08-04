@@ -101,19 +101,7 @@ func request(method, urlStr string, options ...Option) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// wrap response
-	r := &Response{
-		resp: resp,
-	}
-	// return error with status and text body embedded if status code
-	// is not 2XX, and response is also returned.
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		txt, _ := r.Text()
-		return r, errors.New(resp.Status + " " + txt)
-	}
-
-	return r, nil
+	return newResponse(resp)
 }
 
 // requestData sends an HTTP request to the specified URL, with raw string
@@ -204,7 +192,7 @@ func requestFiles(method, url string, options ...Option) (*Response, error) {
 	}
 
 	opts.Headers["Content-Type"] = bodyWriter.FormDataContentType()
-	
+
 	options = append(options, Headers(opts.Headers))
 	options = append(options, Body(&body))
 	// write EOF before sending
@@ -214,7 +202,10 @@ func requestFiles(method, url string, options ...Option) (*Response, error) {
 	return request(method, url, options...)
 }
 
-// Get sends an HTTP GET request.
+// Get sends an HTTP request with GET method.
+//
+// On error, any Response can be ignored. A non-nil Response with a
+// non-nil error only occurs when Response.StatusCode() is not 2xx.
 func Get(url string, options ...Option) (*Response, error) {
 	return request(http.MethodGet, url, options...)
 }
@@ -235,7 +226,10 @@ func Post(url string, options ...Option) (*Response, error) {
 	}
 }
 
-// Put sends an HTTP PUT request.
+// Put sends an HTTP request with PUT method.
+//
+// On error, any Response can be ignored. A non-nil Response with a
+// non-nil error only occurs when Response.StatusCode() is not 2xx.
 func Put(url string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
 	if opts.Data != nil {
@@ -249,7 +243,10 @@ func Put(url string, options ...Option) (*Response, error) {
 	}
 }
 
-// Patch sends an HTTP PATCH request.
+// Patch sends an HTTP request with PATCH method.
+//
+// On error, any Response can be ignored. A non-nil Response with a
+// non-nil error only occurs when Response.StatusCode() is not 2xx.
 func Patch(url string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
 	if opts.Data != nil {
@@ -263,7 +260,10 @@ func Patch(url string, options ...Option) (*Response, error) {
 	}
 }
 
-// Delete sends an HTTP DELETE request.
+// Delete sends an HTTP request with DELETE method.
+//
+// On error, any Response can be ignored. A non-nil Response with a
+// non-nil error only occurs when Response.StatusCode() is not 2xx.
 func Delete(url string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
 	if opts.Data != nil {

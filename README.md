@@ -64,15 +64,12 @@ resp, err := requests.Get("http://example.com")
 if err != nil {
     // ...
 }
-str, err := resp.Text()
-if err != nil {
-    // ...
-}
+s := resp.Text()
 ```
 
 </td>
 </tr>
-<tr><td>11+ lines</td><td>8 lines</td></tr>
+<tr><td>11+ lines</td><td>5 lines</td></tr>
 </tbody>
 </table>
 
@@ -93,7 +90,7 @@ if err != nil {
 ```go
 body := bytes.NewReader(([]byte(`hello, world`))
 req, err := http.NewRequestWithContext(ctx, http.MethodPost, 
-	"https://postman-echo.com/post", body)
+	"http://example.com", body)
 if err != nil {
 	// ...
 }
@@ -113,11 +110,11 @@ if err != nil {
 <td>
 
 ```go
-resp, err := requests.Post("https://postman-echo.com/post", requests.Data(`hello, world`))
+resp, err := requests.Post("http://example.com",
+                            requests.Data(`hello, world`))
 if err != nil {
 	// ...
 }
-defer resp.CLose()
 ```
 
 </td>
@@ -139,7 +136,7 @@ defer resp.CLose()
 
 ```go
 var post placeholder
-u, err := url.Parse("https://jsonplaceholder.typicode.com")
+u, err := url.Parse("http://example.com")
 if err != nil {
 	// ...
 }
@@ -165,12 +162,12 @@ if err != nil {
 </td><td>
 
 ```go
-resp, err := requests.Post("https://jsonplaceholder.typicode.com")
+resp, err := requests.Post("http://example.com")
 if err != nil {
     // ...
 }
-var post placeholder
-if err := r.JSON(placeholder); err != nil {
+var res JSONResponse
+if err := r.JSON(&res); err != nil {
     // ...
 }
 ```
@@ -187,7 +184,7 @@ req := placeholder{
 	Body:   "baz",
 	UserID: 1,
 }
-resp, err := requests.Post("https://jsonplaceholder.typicode.com/posts", requests.JSON(&req))
+resp, err := requests.Post("http://example.com", requests.JSON(&req))
 if err != nil {
     // ...
 }
@@ -195,14 +192,13 @@ var res JSONResponse
 if err := r.JSON(&res); err != nil {
     // ...
 }
-// net/http equivalent left as an exercise for the reader
 ```
 
 ### Set custom headers and forms for a request
 
 ```go
 // Set headers and forms
-resp, err := requests.Post("https://jsonplaceholder.typicode.com/posts", 
+resp, err := requests.Post("http://example.com", 
                             requests.HeaderPairs("martini", "shaken"),
                             requests.FormPairs("name", "Jacky"))
 if err != nil {
@@ -214,8 +210,8 @@ if err != nil {
 
 ```go
 // Set parameters
-resp, err := requests.Get("https://prod.example.com/get?a=1&b=2", 
+resp, err := requests.Get("http://example.com?a=1&b=2", 
                             requests.ParamPairs("c", "3"))
 if err != nil { /* ... */ }
-fmt.Println(u.String()) // https://dev1.example.com/get?a=1&b=2&c=3
+fmt.Println(u.String()) // http://example.com?a=1&b=2&c=3
 ```
