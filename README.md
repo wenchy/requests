@@ -6,6 +6,22 @@ This package mimics the implementation of the well-known Python package [Request
 
 Click to read [documentation](https://pkg.go.dev/github.com/Wenchy/requests@master).
 
+## Why not just use the standard library HTTP client?
+
+Brad Fitzpatrick, long time maintainer of the net/http package, [wrote an extensive list of problems with the standard library HTTP client](https://github.com/bradfitz/exp-httpclient/blob/master/problems.md). His four main points (ignoring issues that can't be resolved by a wrapper around the standard library) are:
+
+> - Too easy to not call Response.Body.Close.
+> - Too easy to not check return status codes
+> - Context support is oddly bolted on
+> - Proper usage is too many lines of boilerplate
+
+**requests** solves these issues by:
+
+- always closing the response body,
+- checking status codes by default,
+- optional `context.Context` parameter,
+- and simplifying the boilerplate.
+
 ## Features
 
 - [x] Keep-Alive & Connection Pooling
