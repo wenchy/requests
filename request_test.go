@@ -218,12 +218,7 @@ func TestPost(t *testing.T) {
 				return
 			}
 			if resp != nil {
-				text, err := resp.Text()
-				if (err != nil) != tt.wantErr {
-					t.Errorf("Patch() error = %v, wantErr %v", err, tt.wantErr)
-					return
-				}
-				t.Logf("resp: %s", text)
+				t.Logf("resp: %s", resp.Text())
 			}
 		})
 	}
@@ -292,12 +287,7 @@ func TestPatch(t *testing.T) {
 				return
 			}
 			if resp != nil {
-				text, err := resp.Text()
-				if (err != nil) != tt.wantErr {
-					t.Errorf("Patch() error = %v, wantErr %v", err, tt.wantErr)
-					return
-				}
-				t.Logf("resp: %s", text)
+				t.Logf("resp: %s", resp.Text())
 			}
 		})
 	}

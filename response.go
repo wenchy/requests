@@ -2,15 +2,46 @@ package requests
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 )
 
 // Response is a wrapper of HTTP response.
 type Response struct {
-	resp        *http.Response
-	body       []byte // filled if resp.Body was already drained.
-	bodyClosed bool
+	resp *http.Response
+	body []byte // auto filled from resp.Body
+}
+
+// newResponse reads and closes resp.Body. Then check the HTTP status
+// in Response.StatusCode. It will return an error with status and text
+// body embedded if status code is not 2xx, and none-nil response is also
+// returned.
+func newResponse(resp *http.Response) (*Response, error) {
+	r := &Response{
+		resp: resp,
+	}
+	if err := r.readAndCloseBody(); err != nil {
+		return nil, err
+	}
+	// return error with status and text body embedded if status code
+	// is not 2xx, and response is also returned.
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		// TODO: only extracts 128 bytes from body.
+		return r, errors.New(resp.Status + " " + r.Text())
+	}
+	return r, nil
+}
+
+// readAndCloseBody drains all the HTTP response body stream and then closes it.
+func (r *Response) readAndCloseBody() error {
+	defer r.resp.Body.Close()
+	var err error
+	r.body, err = io.ReadAll(r.resp.Body)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // StatusCode returns status code of HTTP response.
@@ -21,56 +52,19 @@ func (r *Response) StatusCode() int {
 	return r.resp.StatusCode
 }
 
-// Raw returns raw body of response.
-func (r *Response) Raw() io.ReadCloser {
-	return r.resp.Body
-}
-
 // Bytes parses the HTTP response body as []byte.
-func (r *Response) Bytes() ([]byte, error) {
-	if !r.bodyClosed {
-		if err := r.readAll(); err != nil {
-			return nil, err
-		}
-	}
-	return r.body, nil
+func (r *Response) Bytes() []byte {
+	return r.body
 }
 
 // Text parses the HTTP response body as string.
-func (r *Response) Text() (string, error) {
-	if !r.bodyClosed {
-		if err := r.readAll(); err != nil {
-			return "", err
-		}
-	}
-	return string(r.body), nil
+func (r *Response) Text() string {
+	return string(r.body)
 }
 
 // JSON decodes the HTTP response body as JSON format.
 func (r *Response) JSON(v interface{}) error {
-	if !r.bodyClosed {
-		if err := r.readAll(); err != nil {
-			return err
-		}
-	}
 	return json.Unmarshal(r.body, v)
-}
-
-// readAll drains all the HTTP response body read stream and then closes it.
-func (r *Response) readAll() error {
-	var err error
-	r.body, err = io.ReadAll(r.resp.Body)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-	return nil
-}
-
-// Close closes the HTTP response body read stream.
-func (r *Response) Close() error {
-	r.bodyClosed = true
-	return r.resp.Body.Close()
 }
 
 // Method returns the HTTP request method.
