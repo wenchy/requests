@@ -40,8 +40,9 @@ Click to read [documentation](https://pkg.go.dev/github.com/Wenchy/requests@mast
 <td>
 
 ```go
-req, err := http.NewRequestWithContext(ctx, 
-	http.MethodGet, "http://example.com", nil)
+req, err := http.NewRequestWithContext(
+	ctx, http.MethodGet,
+        "http://example.com", nil)
 if err != nil {
 	// ...
 }
@@ -60,7 +61,7 @@ s := string(b)
 <td>
 
 ```go
-resp, err := requests.Get("http://example.com")
+resp, err := requests.Get("http://example.com")		
 if err != nil {
     // ...
 }
@@ -69,7 +70,7 @@ s := resp.Text()
 
 </td>
 </tr>
-<tr><td>11+ lines</td><td>5 lines</td></tr>
+<tr><td>14+ lines</td><td>5 lines</td></tr>
 </tbody>
 </table>
 
@@ -89,7 +90,8 @@ s := resp.Text()
 
 ```go
 body := bytes.NewReader(([]byte(`hello, world`))
-req, err := http.NewRequestWithContext(ctx, http.MethodPost, 
+req, err := http.NewRequestWithContext(
+	ctx, http.MethodPost, 
 	"http://example.com", body)
 if err != nil {
 	// ...
@@ -110,8 +112,8 @@ if err != nil {
 <td>
 
 ```go
-resp, err := requests.Post("http://example.com",
-                            requests.Data(`hello, world`))
+resp, err := requests.Post("http://example.com",	
+		requests.Data(`hello, world`))
 if err != nil {
 	// ...
 }
@@ -119,7 +121,7 @@ if err != nil {
 
 </td>
 </tr>
-<tr><td>12+ lines</td><td>5 lines</td></tr></tbody></table>
+<tr><td>15+ lines</td><td>4+ lines</td></tr></tbody></table>
 
 ### GET a JSON object
 
@@ -140,8 +142,9 @@ u, err := url.Parse("http://example.com")
 if err != nil {
 	// ...
 }
-req, err := http.NewRequestWithContext(ctx, 
-	http.MethodGet, u.String(), nil)
+req, err := http.NewRequestWithContext(
+        ctx, http.MethodGet,
+	u.String(), nil)
 if err != nil {
 	// ...
 }
@@ -162,7 +165,7 @@ if err != nil {
 </td><td>
 
 ```go
-resp, err := requests.Post("http://example.com")
+resp, err := requests.Post("http://example.com")	
 if err != nil {
     // ...
 }
@@ -174,7 +177,7 @@ if err := r.JSON(&res); err != nil {
 
 </td>
 </tr>
-<tr><td>18+ lines</td><td>8 lines</td></tr></tbody></table>
+<tr><td>22+ lines</td><td>8 lines</td></tr></tbody></table>
 
 ### POST a JSON object and parse the response
 
@@ -184,7 +187,8 @@ req := placeholder{
 	Body:   "baz",
 	UserID: 1,
 }
-resp, err := requests.Post("http://example.com", requests.JSON(&req))
+resp, err := requests.Post("http://example.com",
+			requests.JSON(&req))
 if err != nil {
     // ...
 }
@@ -199,8 +203,8 @@ if err := r.JSON(&res); err != nil {
 ```go
 // Set headers and forms
 resp, err := requests.Post("http://example.com", 
-                            requests.HeaderPairs("martini", "shaken"),
-                            requests.FormPairs("name", "Jacky"))
+			requests.HeaderPairs("martini", "shaken"),
+			requests.FormPairs("name", "Jacky"))
 if err != nil {
     // ...
 }
