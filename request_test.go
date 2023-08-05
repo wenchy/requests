@@ -255,7 +255,7 @@ func TestPatch(t *testing.T) {
 			args: args{
 				urlStr: testServer.URL,
 				options: []Option{
-					JSON(map[string]interface{}{
+					JSON(map[string]any{
 						"status":  0,
 						"message": "hello http patch",
 					}),
@@ -269,7 +269,7 @@ func TestPatch(t *testing.T) {
 			args: args{
 				urlStr: "http://127.0.0.1:11111/unknown",
 				options: []Option{
-					JSON(map[string]interface{}{
+					JSON(map[string]any{
 						"status":  0,
 						"message": "hello http patch",
 					}),

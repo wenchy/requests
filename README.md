@@ -42,7 +42,7 @@ Brad Fitzpatrick, long time maintainer of the net/http package, [wrote an extens
 
 ## Examples
 
-### Simple GET into a string
+### Simple GET into a text string
 
 <table>
 <thead>
@@ -77,11 +77,12 @@ s := string(b)
 <td>
 
 ```go
-resp, err := requests.Get("http://example.com")		
+var txt string
+r, err := requests.Get("http://example.com")	
+            requests.ToText(&txt))
 if err != nil {
     // ...
 }
-s := resp.Text()
 ```
 
 </td>
@@ -128,7 +129,7 @@ if err != nil {
 <td>
 
 ```go
-resp, err := requests.Post("http://example.com",	
+r, err := requests.Post("http://example.com",	
 		requests.Data(`hello, world`))
 if err != nil {
 	// ...
@@ -181,19 +182,17 @@ if err != nil {
 </td><td>
 
 ```go
-resp, err := requests.Post("http://example.com")	
-if err != nil {
-    // ...
-}
 var res JSONResponse
-if err := r.JSON(&res); err != nil {
+r, err := requests.Post("http://example.com")	
+            requests.ToJSON(&res))
+if err != nil {
     // ...
 }
 ```
 
 </td>
 </tr>
-<tr><td>22+ lines</td><td>8 lines</td></tr></tbody></table>
+<tr><td>22+ lines</td><td>5 lines</td></tr></tbody></table>
 
 ### POST a JSON object and parse the response
 
@@ -203,24 +202,22 @@ req := placeholder{
 	Body:   "baz",
 	UserID: 1,
 }
-resp, err := requests.Post("http://example.com",
-			requests.JSON(&req))
-if err != nil {
-    // ...
-}
 var res JSONResponse
-if err := r.JSON(&res); err != nil {
+r, err := requests.Post("http://example.com",
+            requests.JSON(&req),
+            requests.ToJSON(&res))
+if err != nil {
     // ...
 }
 ```
 
-### Set custom headers and forms for a request
+### Set custom header and form for a request
 
 ```go
 // Set headers and forms
-resp, err := requests.Post("http://example.com", 
-			requests.HeaderPairs("martini", "shaken"),
-			requests.FormPairs("name", "Jacky"))
+r, err := requests.Post("http://example.com", 
+            requests.HeaderPairs("martini", "shaken"),
+            requests.FormPairs("name", "Jacky"))
 if err != nil {
     // ...
 }
@@ -230,8 +227,8 @@ if err != nil {
 
 ```go
 // Set parameters
-resp, err := requests.Get("http://example.com?a=1&b=2", 
-                            requests.ParamPairs("c", "3"))
+r, err := requests.Get("http://example.com?a=1&b=2", 
+            requests.ParamPairs("c", "3"))
 if err != nil { /* ... */ }
-fmt.Println(u.String()) // http://example.com?a=1&b=2&c=3
+// URL: http://example.com?a=1&b=2&c=3
 ```

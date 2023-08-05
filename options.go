@@ -15,11 +15,14 @@ type httpOptions struct {
 	Params  map[string]string
 	// body
 	Body io.Reader
-	// different body types
-	Data  interface{}
+	// different request body types
+	Data  any
 	Form  map[string]string
-	JSON  interface{}
+	JSON  any
 	Files map[string]*os.File
+	// different response body types
+	ToText *string
+	ToJSON any
 
 	// auth
 	AuthInfo *auth.AuthInfo
@@ -102,7 +105,7 @@ func Body(body io.Reader) Option {
 }
 
 // Data sets raw string into the request body.
-func Data(data interface{}) Option {
+func Data(data any) Option {
 	return func(opts *httpOptions) {
 		opts.Data = data
 	}
@@ -134,11 +137,25 @@ func FormPairs(kv ...string) Option {
 	return Form(form)
 }
 
-// JSON serializes the given struct as JSON into the request body.
+// JSON marshals the given struct as JSON into the request body.
 // It also sets the Content-Type as "application/json".
-func JSON(obj interface{}) Option {
+func JSON(v any) Option {
 	return func(opts *httpOptions) {
-		opts.JSON = obj
+		opts.JSON = v
+	}
+}
+
+// ToText unmarshals HTTP response body to string.
+func ToText(v *string) Option {
+	return func(opts *httpOptions) {
+		opts.ToText = v
+	}
+}
+
+// ToJSON unmarshals HTTP response body to given struct as JSON.
+func ToJSON(v any) Option {
+	return func(opts *httpOptions) {
+		opts.ToJSON = v
 	}
 }
 

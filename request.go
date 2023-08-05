@@ -106,7 +106,7 @@ func request(method, urlStr string, options ...Option) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newResponse(resp)
+	return newResponse(resp, opts)
 }
 
 // requestData sends an HTTP request to the specified URL, with raw string
