@@ -8,7 +8,7 @@ An elegant and simple HTTP client package, which learned a lot from the well-kno
 
 ## Why not just use the standard library HTTP client?
 
-Brad Fitzpatrick, long time maintainer of the net/http package, [wrote an extensive list of problems with the standard library HTTP client](https://github.com/bradfitz/exp-httpclient/blob/master/problems.md). His four main points (ignoring issues that can't be resolved by a wrapper around the standard library) are:
+[Brad Fitzpatrick](https://github.com/bradfitz), long time maintainer of the **net/http** package, wrote [Problems with the net/http Client API](https://github.com/bradfitz/exp-httpclient/blob/master/problems.md). The four main points are:
 
 > - Too easy to not call Response.Body.Close.
 > - Too easy to not check return status codes
@@ -57,19 +57,19 @@ Brad Fitzpatrick, long time maintainer of the net/http package, [wrote an extens
 
 ```go
 req, err := http.NewRequestWithContext(
-	ctx, http.MethodGet,
+    ctx, http.MethodGet,
         "http://example.com", nil)
 if err != nil {
-	// ...
+    // ...
 }
 res, err := http.DefaultClient.Do(req)
 if err != nil {
-	// ...
+    // ...
 }
 defer res.Body.Close()
 b, err := io.ReadAll(res.Body)
 if err != nil {
-	// ...
+    // ...
 }
 s := string(b)
 ```
@@ -78,7 +78,7 @@ s := string(b)
 
 ```go
 var txt string
-r, err := requests.Get("http://example.com")	
+r, err := requests.Get("http://example.com")
             requests.ToText(&txt))
 if err != nil {
     // ...
@@ -108,20 +108,20 @@ if err != nil {
 ```go
 body := bytes.NewReader(([]byte(`hello, world`))
 req, err := http.NewRequestWithContext(
-	ctx, http.MethodPost, 
-	"http://example.com", body)
+    ctx, http.MethodPost, 
+    "http://example.com", body)
 if err != nil {
-	// ...
+    // ...
 }
 req.Header.Set("Content-Type", "text/plain")
 res, err := http.DefaultClient.Do(req)
 if err != nil {
-	// ...
+    // ...
 }
 defer res.Body.Close()
 _, err := io.ReadAll(res.Body)
 if err != nil {
-	// ...
+    // ...
 }
 ```
 
@@ -129,10 +129,10 @@ if err != nil {
 <td>
 
 ```go
-r, err := requests.Post("http://example.com",	
-		requests.Data(`hello, world`))
+r, err := requests.Post("http://example.com",   
+        requests.Data(`hello, world`))
 if err != nil {
-	// ...
+    // ...
 }
 ```
 
@@ -157,33 +157,33 @@ if err != nil {
 var post placeholder
 u, err := url.Parse("http://example.com")
 if err != nil {
-	// ...
+    // ...
 }
 req, err := http.NewRequestWithContext(
         ctx, http.MethodGet,
-	u.String(), nil)
+    u.String(), nil)
 if err != nil {
-	// ...
+    // ...
 }
 res, err := http.DefaultClient.Do(req)
 if err != nil {
-	// ...
+    // ...
 }
 defer res.Body.Close()
 b, err := io.ReadAll(res.Body)
 if err != nil {
-	// ...
+    // ...
 }
 err := json.Unmarshal(b, &post)
 if err != nil {
-	// ...
+    // ...
 }
 ```
 </td><td>
 
 ```go
 var res JSONResponse
-r, err := requests.Post("http://example.com")	
+r, err := requests.Post("http://example.com")
             requests.ToJSON(&res))
 if err != nil {
     // ...
@@ -198,9 +198,9 @@ if err != nil {
 
 ```go
 req := placeholder{
-	Title:  "foo",
-	Body:   "baz",
-	UserID: 1,
+    Title:  "foo",
+    Body:   "baz",
+    UserID: 1,
 }
 var res JSONResponse
 r, err := requests.Post("http://example.com",
