@@ -154,7 +154,6 @@ if err != nil {
 <td>
 
 ```go
-var post placeholder
 u, err := url.Parse("http://example.com")
 if err != nil {
     // ...
@@ -165,16 +164,17 @@ req, err := http.NewRequestWithContext(
 if err != nil {
     // ...
 }
-res, err := http.DefaultClient.Do(req)
+resp, err := http.DefaultClient.Do(req)
 if err != nil {
     // ...
 }
-defer res.Body.Close()
+defer resp.Body.Close()
 b, err := io.ReadAll(res.Body)
 if err != nil {
     // ...
 }
-err := json.Unmarshal(b, &post)
+var res JSONResponse
+err := json.Unmarshal(b, &res)
 if err != nil {
     // ...
 }
@@ -197,7 +197,7 @@ if err != nil {
 ### POST a JSON object and parse the response
 
 ```go
-req := placeholder{
+req := JSONRequest{
     Title:  "foo",
     Body:   "baz",
     UserID: 1,
