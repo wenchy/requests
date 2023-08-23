@@ -2,6 +2,7 @@ package requests
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -288,6 +289,105 @@ func TestPatch(t *testing.T) {
 			}
 			if resp != nil {
 				t.Logf("resp: %s", resp.Text())
+			}
+		})
+	}
+}
+
+type EchoRequest struct {
+	ID   uint32
+	Name string
+}
+
+type EchoResponse struct {
+	ID   uint32
+	Name string
+}
+
+func TestPostJson(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("method is not Post: %s", r.Method)
+		}
+		t.Logf("query strings: %v", r.URL.Query())
+		t.Logf("headers: %v", r.Header)
+
+		defer r.Body.Close()
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("ReadAll failed: %v", err)
+		}
+		var req EchoRequest
+		if err := json.Unmarshal(body, &req); err != nil {
+			t.Errorf("json unmarshal failed:  %v", err)
+		}
+
+		jsonResp := &EchoResponse{
+			ID:   req.ID,
+			Name: "echo " + req.Name,
+		}
+		resBytes, err := json.Marshal(jsonResp)
+		if err != nil {
+			t.Errorf("json marshal failed: %v", err)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(resBytes)
+	}))
+	defer testServer.Close()
+
+	var jsonResp EchoResponse
+	var textResp string
+	type args struct {
+		url     string
+		options []Option
+		timeout time.Duration
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *Response
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+		{
+			name: "json-request-and-response",
+			args: args{
+				url: testServer.URL,
+				options: []Option{
+					ParamPairs("param1", "value1"),
+					ParamPairs("param2", "value2"),
+					HeaderPairs("header1", "value1"),
+					HeaderPairs("header2", "value2"),
+					JSON(&EchoRequest{ID: 1, Name: "Hello"}),
+					ToJSON(&jsonResp),
+					ToText(&textResp),
+				},
+				timeout: 5 * time.Second,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.args.timeout != 0 {
+				SetEnvTimeout(tt.args.timeout)
+			}
+			got, err := Post(tt.args.url, tt.args.options...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != nil {
+				t.Logf("status code: %+v", got.StatusCode())
+				t.Logf("headers: %+v", got.Headers())
+				t.Logf("cookies: %+v", got.Cookies())
+				t.Logf("body: %+v", got.Text())
+				t.Logf("body(text): %+v", textResp)
+				t.Logf("body(json): %+v", jsonResp)
+			} else {
+				t.Logf("Get failed: %v", err)
 			}
 		})
 	}
