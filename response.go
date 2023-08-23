@@ -17,7 +17,7 @@ type Response struct {
 // in Response.StatusCode. It will return an error with status and text
 // body embedded if status code is not 2xx, and none-nil response is also
 // returned.
-func newResponse(resp *http.Response) (*Response, error) {
+func newResponse(resp *http.Response, opts *httpOptions) (*Response, error) {
 	r := &Response{
 		resp: resp,
 	}
@@ -29,6 +29,14 @@ func newResponse(resp *http.Response) (*Response, error) {
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		// TODO: only extracts 128 bytes from body.
 		return r, errors.New(resp.Status + " " + r.Text())
+	}
+	if opts.ToText != nil {
+		*opts.ToText = r.Text()
+	}
+	if opts.ToJSON != nil {
+		if err := r.JSON(opts.ToJSON); err != nil {
+			return r, err
+		}
 	}
 	return r, nil
 }
@@ -63,7 +71,7 @@ func (r *Response) Text() string {
 }
 
 // JSON decodes the HTTP response body as JSON format.
-func (r *Response) JSON(v interface{}) error {
+func (r *Response) JSON(v any) error {
 	return json.Unmarshal(r.body, v)
 }
 
