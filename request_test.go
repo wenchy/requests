@@ -388,8 +388,8 @@ func TestPostJson(t *testing.T) {
 				t.Logf("body: %+v", got.Text())
 				t.Logf("body(text): %+v", textResp)
 				t.Logf("body(json): %+v", jsonResp)
-				t.Logf("Request(dump): %s", reqDump)
-				t.Logf("Response(dump): %s", respDump)
+				t.Logf("Request(dump):\n%s", reqDump)
+				t.Logf("Response(dump):\n%s", respDump)
 			} else {
 				t.Logf("Get failed: %v", err)
 			}
