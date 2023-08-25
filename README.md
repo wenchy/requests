@@ -232,3 +232,11 @@ r, err := requests.Get("http://example.com?a=1&b=2",
 if err != nil { /* ... */ }
 // URL: http://example.com?a=1&b=2&c=3
 ```
+
+### Dump outgoing client request and response
+
+```go
+var reqDump, respDump string
+r, err := requests.Get("http://example.com", 
+            requests.Dump(&request, &respDump))
+```
