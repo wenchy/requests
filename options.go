@@ -30,6 +30,9 @@ type httpOptions struct {
 	Timeout time.Duration
 
 	DisableKeepAlives bool
+	// dump
+	DumpRequestOut *string
+	DumpResponse   *string
 }
 
 // Option is the functional option type.
@@ -204,6 +207,19 @@ func Timeout(timeout time.Duration) Option {
 func DisableKeepAlives() Option {
 	return func(opts *httpOptions) {
 		opts.DisableKeepAlives = true
+	}
+}
+
+// Dump dumps outgoing client request and response to the corresponding
+// input param (req or resp) if not nil.
+//
+// Refer:
+// - https://pkg.go.dev/net/http/httputil#DumpRequestOut
+// - https://pkg.go.dev/net/http/httputil#DumpResponse
+func Dump(req, resp *string) Option {
+	return func(opts *httpOptions) {
+		opts.DumpRequestOut = req
+		opts.DumpResponse = resp
 	}
 }
 

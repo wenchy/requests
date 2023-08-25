@@ -339,6 +339,7 @@ func TestPostJson(t *testing.T) {
 
 	var jsonResp EchoResponse
 	var textResp string
+	var reqDump, respDump string
 	type args struct {
 		url     string
 		options []Option
@@ -363,6 +364,7 @@ func TestPostJson(t *testing.T) {
 					JSON(&EchoRequest{ID: 1, Name: "Hello"}),
 					ToJSON(&jsonResp),
 					ToText(&textResp),
+					Dump(&reqDump, &respDump),
 				},
 				timeout: 5 * time.Second,
 			},
@@ -386,6 +388,8 @@ func TestPostJson(t *testing.T) {
 				t.Logf("body: %+v", got.Text())
 				t.Logf("body(text): %+v", textResp)
 				t.Logf("body(json): %+v", jsonResp)
+				t.Logf("Request(dump): %s", reqDump)
+				t.Logf("Response(dump): %s", respDump)
 			} else {
 				t.Logf("Get failed: %v", err)
 			}

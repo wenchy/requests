@@ -10,6 +10,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 
@@ -100,12 +101,29 @@ func request(method, urlStr string, options ...Option) (*Response, error) {
 		Transport:     transport,
 	}
 
+	if opts.DumpRequestOut != nil {
+		reqDump, err := httputil.DumpRequestOut(req, true)
+		if err != nil {
+			return nil, err
+		}
+		*opts.DumpRequestOut = string(reqDump)
+	}
+
 	// If the returned error is nil, the Response will contain
 	// a non-nil Body which the user is expected to close.
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
+
+	if opts.DumpResponse != nil {
+		respDump, err := httputil.DumpResponse(resp, true)
+		if err != nil {
+			return nil, err
+		}
+		*opts.DumpResponse = string(respDump)
+	}
+
 	return newResponse(resp, opts)
 }
 
