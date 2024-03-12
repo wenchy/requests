@@ -78,7 +78,7 @@ s := string(b)
 
 ```go
 var txt string
-r, err := requests.Get("http://example.com")
+r, err := requests.Get("http://example.com",
             requests.ToText(&txt))
 if err != nil {
     // ...
@@ -160,7 +160,7 @@ if err != nil {
 }
 req, err := http.NewRequestWithContext(
         ctx, http.MethodGet,
-    u.String(), nil)
+        u.String(), nil)
 if err != nil {
     // ...
 }
@@ -183,7 +183,7 @@ if err != nil {
 
 ```go
 var res JSONResponse
-r, err := requests.Post("http://example.com")
+r, err := requests.Post("http://example.com",
             requests.ToJSON(&res))
 if err != nil {
     // ...
@@ -233,10 +233,10 @@ if err != nil { /* ... */ }
 // URL: http://example.com?a=1&b=2&c=3
 ```
 
-### Dump outgoing client request and response
+### Dump request and response
 
 ```go
 var reqDump, respDump string
 r, err := requests.Get("http://example.com", 
-            requests.Dump(&request, &respDump))
+            requests.Dump(&reqDump, &respDump))
 ```
