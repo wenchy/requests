@@ -5,6 +5,7 @@ package requests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -88,17 +89,19 @@ func request(method, urlStr string, options ...Option) (*Response, error) {
 	//
 	// - https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
 	// - https://stackoverflow.com/questions/59656164/what-is-the-difference-between-net-dialerkeepalive-and-http-transportidletimeo
-	transport := env.DefaultTransport
+	transport := env.transport
 	if opts.DisableKeepAlives {
 		// If option DisableKeepAlives set as true, then clone a new transport
 		// just for this one-off HTTP request.
-		transport = env.DefaultTransport.Clone()
+		transport = env.transport.Clone()
 		transport.DisableKeepAlives = true
 	}
-	client := &http.Client{
-		CheckRedirect: redirector.RedirectPolicyFunc,
-		Timeout:       opts.Timeout,
-		Transport:     transport,
+	client := &Client{
+		Client: &http.Client{
+			CheckRedirect: redirector.RedirectPolicyFunc,
+			Timeout:       opts.Timeout,
+			Transport:     transport,
+		},
 	}
 
 	if opts.DumpRequestOut != nil {
@@ -111,7 +114,7 @@ func request(method, urlStr string, options ...Option) (*Response, error) {
 
 	// If the returned error is nil, the Response will contain
 	// a non-nil Body which the user is expected to close.
-	resp, err := client.Do(req)
+	resp, err := client.Do(context.TODO(), req)
 	if err != nil {
 		return nil, err
 	}

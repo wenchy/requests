@@ -53,14 +53,23 @@ func (r *Response) readAndCloseBody() error {
 }
 
 // StatusCode returns status code of HTTP response.
+//
+// NOTE: It will return -1 if response is nil.
 func (r *Response) StatusCode() int {
-	if r.resp == nil {
-		return http.StatusServiceUnavailable
+	if r == nil || r.resp == nil {
+		// return special status code -1 which is not registered with IANA.
+		return -1
 	}
 	return r.resp.StatusCode
 }
 
-// Bytes parses the HTTP response body as []byte.
+// StatusText returns a text for the HTTP status code. It returns the empty
+// string if the code is unknown.
+func (r *Response) StatusText(code int) string {
+	return http.StatusText(r.StatusCode())
+}
+
+// Bytes returns the HTTP response body as []byte.
 func (r *Response) Bytes() []byte {
 	return r.body
 }
