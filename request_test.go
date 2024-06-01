@@ -17,16 +17,16 @@ import (
 	"github.com/pkg/errors"
 )
 
-func logInterceptor(ctx context.Context, r *http.Request, do Do) (*http.Response, error) {
+func logInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
 	log.Printf("method: %s", r.Method)
 	return do(ctx, r)
 }
 
-func metricInterceptor(ctx context.Context, r *http.Request, do Do) (*http.Response, error) {
+func metricInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
 	log.Printf("method: %s, url: %s", r.Method, r.URL)
 	resp, err := do(ctx, r)
 	if err == nil {
-		log.Printf("method: %s, response.status: %s", r.Method, resp.Status)
+		log.Printf("method: %s, response.status: %s", r.Method, resp.StatusText())
 	}
 	return resp, err
 }

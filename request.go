@@ -11,7 +11,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"strings"
 
@@ -21,9 +20,14 @@ import (
 	"github.com/Wenchy/requests/internal/auth/redirector"
 )
 
-// request sends an HTTP request.
-func request(method, urlStr string, options ...Option) (*Response, error) {
-	opts := parseOptions(options...)
+// Request is a wrapper of http.Request.
+type Request struct {
+	*http.Request
+	opts *httpOptions
+}
+
+// newRequest wraps NewRequestWithContext using context.Background.
+func newRequest(ctx context.Context, method, urlStr string, opts *httpOptions) (*Request, error) {
 	if len(opts.Params) != 0 {
 		// check raw URL, should not contain character '?'
 		if strings.Contains(urlStr, "?") {
@@ -36,24 +40,34 @@ func request(method, urlStr string, options ...Option) (*Response, error) {
 		queryString := queryValues.Encode()
 		urlStr += "?" + queryString
 	}
-
-	req, err := http.NewRequest(method, urlStr, opts.Body)
+	r, err := http.NewRequestWithContext(ctx, method, urlStr, opts.Body)
 	if err != nil {
 		return nil, err
 	}
-
 	// fill request headers
 	if opts.Headers != nil {
 		for k, v := range opts.Headers {
-			req.Header.Set(k, v)
+			r.Header.Set(k, v)
 		}
 	}
-
+	// auth
 	if opts.AuthInfo != nil {
 		// TODO(wenchy): some other auth types
 		if opts.AuthInfo.Type == auth.BasicAuth {
-			req.SetBasicAuth(opts.AuthInfo.Username, opts.AuthInfo.Password)
+			r.SetBasicAuth(opts.AuthInfo.Username, opts.AuthInfo.Password)
 		}
+	}
+	return &Request{Request: r, opts: opts}, nil
+}
+
+// request sends an HTTP request.
+func request(method, urlStr string, options ...Option) (*Response, error) {
+	opts := parseOptions(options...)
+	// TODO: use ctx from options
+	ctx := context.Background()
+	req, err := newRequest(ctx, method, urlStr, opts)
+	if err != nil {
+		return nil, err
 	}
 
 	// NOTE: Keep-Alive & Connection Pooling
@@ -103,31 +117,7 @@ func request(method, urlStr string, options ...Option) (*Response, error) {
 			Transport:     transport,
 		},
 	}
-
-	if opts.DumpRequestOut != nil {
-		reqDump, err := httputil.DumpRequestOut(req, true)
-		if err != nil {
-			return nil, err
-		}
-		*opts.DumpRequestOut = string(reqDump)
-	}
-
-	// If the returned error is nil, the Response will contain
-	// a non-nil Body which the user is expected to close.
-	resp, err := client.Do(context.TODO(), req)
-	if err != nil {
-		return nil, err
-	}
-
-	if opts.DumpResponse != nil {
-		respDump, err := httputil.DumpResponse(resp, true)
-		if err != nil {
-			return nil, err
-		}
-		*opts.DumpResponse = string(respDump)
-	}
-
-	return newResponse(resp, opts)
+	return client.Do(ctx, req)
 }
 
 // requestData sends an HTTP request to the specified URL, with raw string

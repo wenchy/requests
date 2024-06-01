@@ -56,7 +56,7 @@ func WithInterceptor(interceptors ...Interceptor) {
 	} else if len(interceptors) == 1 {
 		chainedInt = interceptors[0]
 	} else {
-		chainedInt = func(ctx context.Context, r *http.Request, do Do) (*http.Response, error) {
+		chainedInt = func(ctx context.Context, r *Request, do Do) (*Response, error) {
 			return interceptors[0](ctx, r, getChainDo(interceptors, 0, do))
 		}
 	}
@@ -68,7 +68,7 @@ func getChainDo(interceptors []Interceptor, curr int, finalDo Do) Do {
 	if curr == len(interceptors)-1 {
 		return finalDo
 	}
-	return func(ctx context.Context, r *http.Request) (*http.Response, error) {
+	return func(ctx context.Context, r *Request) (*Response, error) {
 		return interceptors[curr+1](ctx, r, getChainDo(interceptors, curr+1, finalDo))
 	}
 }
