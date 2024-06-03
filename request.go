@@ -23,7 +23,16 @@ import (
 // Request is a wrapper of http.Request.
 type Request struct {
 	*http.Request
-	opts *httpOptions
+	opts *Options
+	Stats *Stats
+}
+
+// Stats contains common metrics for an HTTP request.
+type Stats struct {
+	BodySize int
+	// TODO: more metrics
+	// HeaderSize int
+	// TrailerSize int
 }
 
 // WithContext returns a shallow copy of r.Request with its context changed to ctx.
@@ -34,7 +43,7 @@ func (r *Request) WithContext(ctx context.Context) *Request {
 }
 
 // newRequest wraps NewRequestWithContext using context.Background.
-func newRequest(method, urlStr string, opts *httpOptions) (*Request, error) {
+func newRequest(method, urlStr string, opts *Options, stats *Stats) (*Request, error) {
 	if len(opts.Params) != 0 {
 		// check raw URL, should not contain character '?'
 		if strings.Contains(urlStr, "?") {
@@ -64,13 +73,13 @@ func newRequest(method, urlStr string, opts *httpOptions) (*Request, error) {
 			r.SetBasicAuth(opts.AuthInfo.Username, opts.AuthInfo.Password)
 		}
 	}
-	return &Request{Request: r, opts: opts}, nil
+	return &Request{Request: r, opts: opts, Stats: stats}, nil
 }
 
 // do sends an HTTP request and returns an HTTP response, following policy
 // (such as redirects, cookies, auth) as configured on the client.
-func do(method, url string, opts *httpOptions) (*Response, error) {
-	req, err := newRequest(method, url, opts)
+func do(method, url string, opts *Options, stats *Stats) (*Response, error) {
+	req, err := newRequest(method, url, opts, stats)
 	if err != nil {
 		return nil, err
 	}
@@ -134,69 +143,92 @@ func do(method, url string, opts *httpOptions) (*Response, error) {
 }
 
 // request sends an HTTP request.
-func request(method, url string, opts *httpOptions) (*Response, error) {
-	return do(method, url, opts)
+func request(method, url string, opts *Options) (*Response, error) {
+	stats := &Stats{}
+	// NOTE: get the body size from io.Reader. It is costy for large body.
+	buf := &bytes.Buffer{}
+	if opts.Body != nil {
+		n, err := io.Copy(buf, opts.Body)
+		if err != nil {
+			return nil, err
+		}
+		stats.BodySize = int(n)
+	}
+	return do(method, url, opts, stats)
 }
 
 // requestData sends an HTTP request to the specified URL, with raw string
 // as the request body.
-func requestData(method, url string, opts *httpOptions) (*Response, error) {
+func requestData(method, url string, opts *Options) (*Response, error) {
+	stats := &Stats{}
 	var body *strings.Reader
 	if opts.Data != nil {
 		d := fmt.Sprintf("%v", opts.Data)
+		stats.BodySize = len(d)
 		body = strings.NewReader(d)
 	}
 	// TODO: judge content type
 	// opts.Headers["Content-Type"] = "application/x-www-form-urlencoded"
 	opts.Body = body
-	return do(method, url, opts)
+	return do(method, url, opts, stats)
 }
 
 // requestForm sends an HTTP request to the specified URL, with form's keys and
 // values URL-encoded as the request body.
-func requestForm(method, urlStr string, opts *httpOptions) (*Response, error) {
+func requestForm(method, urlStr string, opts *Options) (*Response, error) {
+	stats := &Stats{}
 	var body *strings.Reader
 	if opts.Form != nil {
 		formValues := url.Values{}
 		for k, v := range opts.Form {
 			formValues.Add(k, v)
 		}
-		body = strings.NewReader(formValues.Encode())
+		d := formValues.Encode()
+		stats.BodySize = len(d)
+		body = strings.NewReader(d)
 	}
 	opts.Headers["Content-Type"] = "application/x-www-form-urlencoded"
 	opts.Body = body
-	return do(method, urlStr, opts)
+	return do(method, urlStr, opts, stats)
 }
 
 // requestJSON sends an HTTP request, and encode request body as json.
-func requestJSON(method, url string, opts *httpOptions) (*Response, error) {
+func requestJSON(method, url string, opts *Options) (*Response, error) {
+	stats := &Stats{}
 	var body *bytes.Buffer
 	if opts.JSON != nil {
-		reqBytes, err := json.Marshal(opts.JSON)
+		d, err := json.Marshal(opts.JSON)
 		if err != nil {
 			return nil, err
 		}
-		body = bytes.NewBuffer(reqBytes)
+		stats.BodySize = len(d)
+		body = bytes.NewBuffer(d)
 	}
 
 	opts.Headers["Content-Type"] = "application/json"
 	opts.Body = body
-	return do(method, url, opts)
+	return do(method, url, opts, stats)
 }
 
 // requestFiles sends an uploading request for multiple multipart-encoded files.
-func requestFiles(method, url string, opts *httpOptions) (*Response, error) {
+func requestFiles(method, url string, opts *Options) (*Response, error) {
+	stats := &Stats{}
 	var body bytes.Buffer
 	bodyWriter := multipart.NewWriter(&body)
 	if opts.Files != nil {
-		for field, fh := range opts.Files {
-			fileWriter, err := bodyWriter.CreateFormFile(field, fh.Name())
+		for field, f := range opts.Files {
+			fileWriter, err := bodyWriter.CreateFormFile(field, f.Name())
 			if err != nil {
 				return nil, err
 			}
-			if _, err := io.Copy(fileWriter, fh); err != nil {
+			if _, err := io.Copy(fileWriter, f); err != nil {
 				return nil, err
 			}
+			fi, err := f.Stat()
+			if err != nil {
+				return nil, err
+			}
+			stats.BodySize += int(fi.Size())
 		}
 	}
 
@@ -206,7 +238,7 @@ func requestFiles(method, url string, opts *httpOptions) (*Response, error) {
 	if err := bodyWriter.Close(); err != nil {
 		return nil, err
 	}
-	return do(method, url, opts)
+	return do(method, url, opts, stats)
 }
 
 type bodyType int
@@ -219,7 +251,7 @@ const (
 	bodyTypeFiles
 )
 
-func inferBodyType(opts *httpOptions) bodyType {
+func inferBodyType(opts *Options) bodyType {
 	if opts.Data != nil {
 		return bodyTypeData
 	} else if opts.Form != nil {
@@ -233,7 +265,7 @@ func inferBodyType(opts *httpOptions) bodyType {
 	}
 }
 
-type dispatcher func(method, url string, opts *httpOptions) (*Response, error)
+type dispatcher func(method, url string, opts *Options) (*Response, error)
 
 var dispatchers map[bodyType]dispatcher
 

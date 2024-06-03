@@ -39,6 +39,8 @@ An elegant and simple HTTP client package, which learned a lot from the well-kno
 - [x] Connection Timeouts
 - [ ] Chunked Requests
 - [ ] .netrc Support
+- [x] `context.Context` Support
+- [x] Interceptor Support
 
 ## Examples
 

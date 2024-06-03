@@ -23,10 +23,10 @@ func logInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
 }
 
 func metricInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
-	log.Printf("method: %s, url: %s", r.Method, r.URL)
+	log.Printf("request, method: %s, url: %s, bodySize: %d", r.Method, r.URL, r.Stats.BodySize)
 	resp, err := do(ctx, r)
 	if err == nil {
-		log.Printf("method: %s, response.status: %s", r.Method, resp.StatusText())
+		log.Printf("response: method: %s, status: %s, bodySize: %d", r.Method, resp.StatusText(), len(resp.Bytes()))
 	}
 	return resp, err
 }
