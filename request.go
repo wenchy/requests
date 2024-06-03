@@ -26,6 +26,8 @@ type Request struct {
 	opts *httpOptions
 }
 
+// WithContext returns a shallow copy of r.Request with its context changed to ctx.
+// The provided ctx must be non-nil.
 func (r *Request) WithContext(ctx context.Context) *Request {
 	r.Request = r.Request.WithContext(ctx)
 	return r
@@ -65,10 +67,10 @@ func newRequest(method, urlStr string, opts *httpOptions) (*Request, error) {
 	return &Request{Request: r, opts: opts}, nil
 }
 
-// request sends an HTTP request.
-func request(method, urlStr string, options ...Option) (*Response, error) {
-	opts := parseOptions(options...)
-	req, err := newRequest(method, urlStr, opts)
+// do sends an HTTP request and returns an HTTP response, following policy
+// (such as redirects, cookies, auth) as configured on the client.
+func do(method, url string, opts *httpOptions) (*Response, error) {
+	req, err := newRequest(method, url, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -131,10 +133,14 @@ func request(method, urlStr string, options ...Option) (*Response, error) {
 	return client.Do(ctx, req)
 }
 
+// request sends an HTTP request.
+func request(method, url string, opts *httpOptions) (*Response, error) {
+	return do(method, url, opts)
+}
+
 // requestData sends an HTTP request to the specified URL, with raw string
 // as the request body.
-func requestData(method, urlStr string, options ...Option) (*Response, error) {
-	opts := parseOptions(options...)
+func requestData(method, url string, opts *httpOptions) (*Response, error) {
 	var body *strings.Reader
 	if opts.Data != nil {
 		d := fmt.Sprintf("%v", opts.Data)
@@ -142,16 +148,13 @@ func requestData(method, urlStr string, options ...Option) (*Response, error) {
 	}
 	// TODO: judge content type
 	// opts.Headers["Content-Type"] = "application/x-www-form-urlencoded"
-
-	// options = append(options, Headers(opts.Headers))
-	options = append(options, Body(body))
-	return request(method, urlStr, options...)
+	opts.Body = body
+	return do(method, url, opts)
 }
 
 // requestForm sends an HTTP request to the specified URL, with form's keys and
 // values URL-encoded as the request body.
-func requestForm(method, urlStr string, options ...Option) (*Response, error) {
-	opts := parseOptions(options...)
+func requestForm(method, urlStr string, opts *httpOptions) (*Response, error) {
 	var body *strings.Reader
 	if opts.Form != nil {
 		formValues := url.Values{}
@@ -161,15 +164,12 @@ func requestForm(method, urlStr string, options ...Option) (*Response, error) {
 		body = strings.NewReader(formValues.Encode())
 	}
 	opts.Headers["Content-Type"] = "application/x-www-form-urlencoded"
-
-	options = append(options, Headers(opts.Headers))
-	options = append(options, Body(body))
-	return request(method, urlStr, options...)
+	opts.Body = body
+	return do(method, urlStr, opts)
 }
 
 // requestJSON sends an HTTP request, and encode request body as json.
-func requestJSON(method, url string, options ...Option) (*Response, error) {
-	opts := parseOptions(options...)
+func requestJSON(method, url string, opts *httpOptions) (*Response, error) {
 	var body *bytes.Buffer
 	if opts.JSON != nil {
 		reqBytes, err := json.Marshal(opts.JSON)
@@ -180,15 +180,12 @@ func requestJSON(method, url string, options ...Option) (*Response, error) {
 	}
 
 	opts.Headers["Content-Type"] = "application/json"
-
-	options = append(options, Headers(opts.Headers))
-	options = append(options, Body(body))
-	return request(method, url, options...)
+	opts.Body = body
+	return do(method, url, opts)
 }
 
 // requestFiles sends an uploading request for multiple multipart-encoded files.
-func requestFiles(method, url string, options ...Option) (*Response, error) {
-	opts := parseOptions(options...)
+func requestFiles(method, url string, opts *httpOptions) (*Response, error) {
 	var body bytes.Buffer
 	bodyWriter := multipart.NewWriter(&body)
 	if opts.Files != nil {
@@ -204,87 +201,54 @@ func requestFiles(method, url string, options ...Option) (*Response, error) {
 	}
 
 	opts.Headers["Content-Type"] = bodyWriter.FormDataContentType()
-
-	options = append(options, Headers(opts.Headers))
-	options = append(options, Body(&body))
+	opts.Body = &body
 	// write EOF before sending
 	if err := bodyWriter.Close(); err != nil {
 		return nil, err
 	}
-	return request(method, url, options...)
+	return do(method, url, opts)
 }
 
-// Get sends an HTTP request with GET method.
-//
-// On error, any Response can be ignored. A non-nil Response with a
-// non-nil error only occurs when Response.StatusCode() is not 2xx.
-func Get(url string, options ...Option) (*Response, error) {
-	return request(http.MethodGet, url, options...)
-}
+type bodyType int
 
-// Post sends an HTTP POST request.
-func Post(url string, options ...Option) (*Response, error) {
-	opts := parseOptions(options...)
+const (
+	bodyTypeDefault = iota
+	bodyTypeData
+	bodyTypeForm
+	bodyTypeJSON
+	bodyTypeFiles
+)
+
+func inferBodyType(opts *httpOptions) bodyType {
 	if opts.Data != nil {
-		return requestData(http.MethodPost, url, options...)
+		return bodyTypeData
 	} else if opts.Form != nil {
-		return requestForm(http.MethodPost, url, options...)
+		return bodyTypeForm
 	} else if opts.JSON != nil {
-		return requestJSON(http.MethodPost, url, options...)
+		return bodyTypeJSON
 	} else if opts.Files != nil {
-		return requestFiles(http.MethodPost, url, options...)
+		return bodyTypeFiles
 	} else {
-		return request(http.MethodPost, url, options...)
+		return bodyTypeDefault
 	}
 }
 
-// Put sends an HTTP request with PUT method.
-//
-// On error, any Response can be ignored. A non-nil Response with a
-// non-nil error only occurs when Response.StatusCode() is not 2xx.
-func Put(url string, options ...Option) (*Response, error) {
-	opts := parseOptions(options...)
-	if opts.Data != nil {
-		return requestData(http.MethodPut, url, options...)
-	} else if opts.Form != nil {
-		return requestForm(http.MethodPut, url, options...)
-	} else if opts.JSON != nil {
-		return requestJSON(http.MethodPut, url, options...)
-	} else {
-		return request(http.MethodPut, url, options...)
+type dispatcher func(method, url string, opts *httpOptions) (*Response, error)
+
+var dispatchers map[bodyType]dispatcher
+
+func init() {
+	dispatchers = map[bodyType]dispatcher{
+		bodyTypeDefault: request,
+		bodyTypeData:    requestData,
+		bodyTypeForm:    requestForm,
+		bodyTypeJSON:    requestJSON,
+		bodyTypeFiles:   requestFiles,
 	}
 }
 
-// Patch sends an HTTP request with PATCH method.
-//
-// On error, any Response can be ignored. A non-nil Response with a
-// non-nil error only occurs when Response.StatusCode() is not 2xx.
-func Patch(url string, options ...Option) (*Response, error) {
+func callMethod(method, url string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
-	if opts.Data != nil {
-		return requestData(http.MethodPatch, url, options...)
-	} else if opts.Form != nil {
-		return requestForm(http.MethodPatch, url, options...)
-	} else if opts.JSON != nil {
-		return requestJSON(http.MethodPatch, url, options...)
-	} else {
-		return request(http.MethodPatch, url, options...)
-	}
-}
-
-// Delete sends an HTTP request with DELETE method.
-//
-// On error, any Response can be ignored. A non-nil Response with a
-// non-nil error only occurs when Response.StatusCode() is not 2xx.
-func Delete(url string, options ...Option) (*Response, error) {
-	opts := parseOptions(options...)
-	if opts.Data != nil {
-		return requestData(http.MethodDelete, url, options...)
-	} else if opts.Form != nil {
-		return requestForm(http.MethodDelete, url, options...)
-	} else if opts.JSON != nil {
-		return requestJSON(http.MethodDelete, url, options...)
-	} else {
-		return request(http.MethodDelete, url, options...)
-	}
+	bodyType := inferBodyType(opts)
+	return dispatchers[bodyType](method, url, opts)
 }
