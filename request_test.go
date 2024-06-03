@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httptrace"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,16 +24,31 @@ func logInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
 }
 
 func metricInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
-	log.Printf("method: %s, url: %s", r.Method, r.URL)
+	log.Printf("request, method: %s, url: %s, bodySize: %d", r.Method, r.URL, r.Stats.BodySize)
 	resp, err := do(ctx, r)
 	if err == nil {
-		log.Printf("method: %s, response.status: %s", r.Method, resp.StatusText())
+		log.Printf("response: method: %s, status: %s, bodySize: %d", r.Method, resp.StatusText(), len(resp.Bytes()))
 	}
 	return resp, err
 }
 
+func traceInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
+	trace := &httptrace.ClientTrace{
+		GetConn:      func(hostPort string) { log.Printf("starting to create conn: %s ", hostPort) },
+		DNSStart:     func(info httptrace.DNSStartInfo) { log.Printf("starting to look up dns: %+v", info) },
+		DNSDone:      func(info httptrace.DNSDoneInfo) { log.Printf("done looking up dns: %+v", info) },
+		ConnectStart: func(network, addr string) { log.Printf("starting tcp connection: %s, %s", network, addr) },
+		ConnectDone: func(network, addr string, err error) {
+			log.Printf("tcp connection created: %s, %s, %s", network, addr, err)
+		},
+		GotConn: func(info httptrace.GotConnInfo) { log.Printf("connection established: %+v", info) },
+	}
+	ctx = httptrace.WithClientTrace(ctx, trace)
+	return do(ctx, r)
+}
+
 func init() {
-	WithInterceptor(logInterceptor, metricInterceptor)
+	WithInterceptor(logInterceptor, metricInterceptor, traceInterceptor)
 }
 
 func TestGet(t *testing.T) {
@@ -60,7 +76,7 @@ func TestGet(t *testing.T) {
 		{
 			name: "test case 1",
 			args: args{
-				url: "https://www.google.com",
+				url: testServer.URL,
 				options: []Option{
 					BasicAuth("XXX", "OOO"),
 				},

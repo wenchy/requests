@@ -35,6 +35,9 @@ func (c *Client) do(ctx context.Context, r *Request) (*Response, error) {
 		}
 		*r.opts.DumpRequestOut = string(reqDump)
 	}
+	if ctx != nil {
+		r = r.WithContext(ctx)
+	}
 	// If the returned error is nil, the Response will contain
 	// a non-nil Body which the user is expected to close.
 	resp, err := c.Client.Do(r.Request)

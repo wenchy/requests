@@ -17,7 +17,7 @@ type Response struct {
 // in Response.StatusCode. It will return an error with status and text
 // body embedded if status code is not 2xx, and none-nil response is also
 // returned.
-func newResponse(resp *http.Response, opts *httpOptions) (*Response, error) {
+func newResponse(resp *http.Response, opts *Options) (*Response, error) {
 	r := &Response{
 		Response: resp,
 	}
