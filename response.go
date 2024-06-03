@@ -7,19 +7,19 @@ import (
 	"net/http"
 )
 
-// Response is a wrapper of HTTP response.
+// Response is a wrapper of http.Response.
 type Response struct {
-	resp *http.Response
-	body []byte // auto filled from resp.Body
+	*http.Response
+	body []byte // auto filled from Response.Body
 }
 
-// newResponse reads and closes resp.Body. Then check the HTTP status
+// newResponse reads and closes Response.Body. Then check the HTTP status
 // in Response.StatusCode. It will return an error with status and text
 // body embedded if status code is not 2xx, and none-nil response is also
 // returned.
 func newResponse(resp *http.Response, opts *httpOptions) (*Response, error) {
 	r := &Response{
-		resp: resp,
+		Response: resp,
 	}
 	if err := r.readAndCloseBody(); err != nil {
 		return nil, err
@@ -43,9 +43,9 @@ func newResponse(resp *http.Response, opts *httpOptions) (*Response, error) {
 
 // readAndCloseBody drains all the HTTP response body stream and then closes it.
 func (r *Response) readAndCloseBody() error {
-	defer r.resp.Body.Close()
+	defer r.Response.Body.Close()
 	var err error
-	r.body, err = io.ReadAll(r.resp.Body)
+	r.body, err = io.ReadAll(r.Response.Body)
 	if err != nil {
 		return err
 	}
@@ -53,14 +53,32 @@ func (r *Response) readAndCloseBody() error {
 }
 
 // StatusCode returns status code of HTTP response.
+//
+// NOTE: It returns -1 if response is nil.
 func (r *Response) StatusCode() int {
-	if r.resp == nil {
-		return http.StatusServiceUnavailable
+	if r == nil || r.Response == nil {
+		// return special status code -1 which is not registered with IANA.
+		return -1
 	}
-	return r.resp.StatusCode
+	return r.Response.StatusCode
 }
 
-// Bytes parses the HTTP response body as []byte.
+// StatusText returns a text for the HTTP status code.
+//
+// NOTE:
+//   - It returns "Response is nil" if response is nil.
+//   - It returns the empty string if the code is unknown.
+//
+// e.g. "OK"
+func (r *Response) StatusText() string {
+	if r == nil || r.Response == nil {
+		// return special status code -1 which is not registered with IANA.
+		return "Response is nil"
+	}
+	return r.Response.Status
+}
+
+// Bytes returns the HTTP response body as []byte.
 func (r *Response) Bytes() []byte {
 	return r.body
 }
@@ -77,24 +95,24 @@ func (r *Response) JSON(v any) error {
 
 // Method returns the HTTP request method.
 func (r *Response) Method() string {
-	return r.resp.Request.Method
+	return r.Response.Request.Method
 }
 
 // URL returns the HTTP request URL string.
 func (r *Response) URL() string {
-	return r.resp.Request.URL.String()
+	return r.Response.Request.URL.String()
 }
 
 // Headers maps header keys to values. If the response had multiple headers
 // with the same key, they may be concatenated, with comma delimiters.
 func (r *Response) Headers() http.Header {
-	return r.resp.Header
+	return r.Response.Header
 }
 
 // Cookies parses and returns the cookies set in the Set-Cookie headers.
 func (r *Response) Cookies() map[string]*http.Cookie {
 	m := make(map[string]*http.Cookie)
-	for _, c := range r.resp.Cookies() {
+	for _, c := range r.Response.Cookies() {
 		m[c.Name] = c
 	}
 	return m

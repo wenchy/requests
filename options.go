@@ -230,7 +230,7 @@ func newDefaultOptions() *httpOptions {
 		Params:  map[string]string{},
 		Form:    nil,
 		JSON:    nil,
-		Timeout: env.Timeout,
+		Timeout: env.timeout,
 	}
 }
 

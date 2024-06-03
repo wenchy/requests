@@ -2,9 +2,11 @@ package requests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +16,24 @@ import (
 
 	"github.com/pkg/errors"
 )
+
+func logInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
+	log.Printf("method: %s", r.Method)
+	return do(ctx, r)
+}
+
+func metricInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
+	log.Printf("method: %s, url: %s", r.Method, r.URL)
+	resp, err := do(ctx, r)
+	if err == nil {
+		log.Printf("method: %s, response.status: %s", r.Method, resp.StatusText())
+	}
+	return resp, err
+}
+
+func init() {
+	WithInterceptor(logInterceptor, metricInterceptor)
+}
 
 func TestGet(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
