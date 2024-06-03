@@ -1,6 +1,7 @@
 package requests
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,8 @@ import (
 
 // httpOptions defines all optional parameters for HTTP request.
 type httpOptions struct {
+	ctx context.Context
+
 	Headers map[string]string
 	Params  map[string]string
 	// body
@@ -37,6 +40,17 @@ type httpOptions struct {
 
 // Option is the functional option type.
 type Option func(*httpOptions)
+
+// Context sets the HTTP request context.
+//
+// For outgoing client request, the context controls the entire lifetime of
+// a request and its response: obtaining a connection, sending the request,
+// and reading the response headers and body.
+func Context(ctx context.Context) Option {
+	return func(opts *httpOptions) {
+		opts.ctx = ctx
+	}
+}
 
 // Headers sets the HTTP headers.
 func Headers(headers map[string]string) Option {

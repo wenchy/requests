@@ -60,7 +60,7 @@ func TestGet(t *testing.T) {
 		{
 			name: "test case 1",
 			args: args{
-				url: "https://www.google.com",
+				url: testServer.URL,
 				options: []Option{
 					BasicAuth("XXX", "OOO"),
 				},

@@ -26,8 +26,13 @@ type Request struct {
 	opts *httpOptions
 }
 
+func (r *Request) WithContext(ctx context.Context) *Request {
+	r.Request = r.Request.WithContext(ctx)
+	return r
+}
+
 // newRequest wraps NewRequestWithContext using context.Background.
-func newRequest(ctx context.Context, method, urlStr string, opts *httpOptions) (*Request, error) {
+func newRequest(method, urlStr string, opts *httpOptions) (*Request, error) {
 	if len(opts.Params) != 0 {
 		// check raw URL, should not contain character '?'
 		if strings.Contains(urlStr, "?") {
@@ -40,7 +45,7 @@ func newRequest(ctx context.Context, method, urlStr string, opts *httpOptions) (
 		queryString := queryValues.Encode()
 		urlStr += "?" + queryString
 	}
-	r, err := http.NewRequestWithContext(ctx, method, urlStr, opts.Body)
+	r, err := http.NewRequest(method, urlStr, opts.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -63,9 +68,7 @@ func newRequest(ctx context.Context, method, urlStr string, opts *httpOptions) (
 // request sends an HTTP request.
 func request(method, urlStr string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
-	// TODO: use ctx from options
-	ctx := context.Background()
-	req, err := newRequest(ctx, method, urlStr, opts)
+	req, err := newRequest(method, urlStr, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +120,14 @@ func request(method, urlStr string, options ...Option) (*Response, error) {
 			Transport:     transport,
 		},
 	}
+	var ctx context.Context
+	if opts.ctx != nil {
+		ctx = opts.ctx // use ctx from options if set
+	} else {
+		newCtx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
+		defer cancel()
+		ctx = newCtx
+	}
 	return client.Do(ctx, req)
 }
 
@@ -134,12 +145,7 @@ func requestData(method, urlStr string, options ...Option) (*Response, error) {
 
 	// options = append(options, Headers(opts.Headers))
 	options = append(options, Body(body))
-	r, err := request(method, urlStr, options...)
-	if err != nil {
-		return r, err
-	}
-
-	return r, nil
+	return request(method, urlStr, options...)
 }
 
 // requestForm sends an HTTP request to the specified URL, with form's keys and
@@ -158,12 +164,7 @@ func requestForm(method, urlStr string, options ...Option) (*Response, error) {
 
 	options = append(options, Headers(opts.Headers))
 	options = append(options, Body(body))
-	r, err := request(method, urlStr, options...)
-	if err != nil {
-		return r, err
-	}
-
-	return r, nil
+	return request(method, urlStr, options...)
 }
 
 // requestJSON sends an HTTP request, and encode request body as json.
@@ -182,12 +183,7 @@ func requestJSON(method, url string, options ...Option) (*Response, error) {
 
 	options = append(options, Headers(opts.Headers))
 	options = append(options, Body(body))
-	r, err := request(method, url, options...)
-	if err != nil {
-		return r, err
-	}
-
-	return r, nil
+	return request(method, url, options...)
 }
 
 // requestFiles sends an uploading request for multiple multipart-encoded files.
