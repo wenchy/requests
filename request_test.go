@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httptrace"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,8 +32,23 @@ func metricInterceptor(ctx context.Context, r *Request, do Do) (*Response, error
 	return resp, err
 }
 
+func traceInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
+	trace := &httptrace.ClientTrace{
+		GetConn:      func(hostPort string) { log.Printf("starting to create conn: %s ", hostPort) },
+		DNSStart:     func(info httptrace.DNSStartInfo) { log.Printf("starting to look up dns: %+v", info) },
+		DNSDone:      func(info httptrace.DNSDoneInfo) { log.Printf("done looking up dns: %+v", info) },
+		ConnectStart: func(network, addr string) { log.Printf("starting tcp connection: %s, %s", network, addr) },
+		ConnectDone: func(network, addr string, err error) {
+			log.Printf("tcp connection created: %s, %s, %s", network, addr, err)
+		},
+		GotConn: func(info httptrace.GotConnInfo) { log.Printf("connection established: %+v", info) },
+	}
+	ctx = httptrace.WithClientTrace(ctx, trace)
+	return do(ctx, r)
+}
+
 func init() {
-	WithInterceptor(logInterceptor, metricInterceptor)
+	WithInterceptor(logInterceptor, metricInterceptor, traceInterceptor)
 }
 
 func TestGet(t *testing.T) {
