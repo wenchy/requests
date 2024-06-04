@@ -79,9 +79,6 @@ func Context(ctx context.Context) Option {
 // [http.CanonicalHeaderKey]: https://pkg.go.dev/net/http#CanonicalHeaderKey
 func Headers[T map[string]string | http.Header](headers T) Option {
 	return func(opts *Options) {
-		if opts.Headers == nil {
-			opts.Headers = http.Header{}
-		}
 		switch headers := any(headers).(type) {
 		case map[string]string:
 			for k, v := range headers {
@@ -359,7 +356,6 @@ func Dump(req, resp *string) Option {
 func newDefaultOptions() *Options {
 	return &Options{
 		Headers:  http.Header{},
-		Params:   url.Values{},
 		bodyType: bodyTypeDefault,
 		Timeout:  env.timeout,
 	}
