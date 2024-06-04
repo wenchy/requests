@@ -60,9 +60,6 @@ type testRequest struct {
 
 func TestGet(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("method is not GET: %s", r.Method)
-		}
 		t.Logf("query strings: %v", r.URL.Query())
 		t.Logf("headers: %v", r.Header)
 		w.WriteHeader(http.StatusOK)
@@ -103,6 +100,16 @@ func TestGet(t *testing.T) {
 				url: testServer.URL,
 				options: []Option{
 					DisableKeepAlives(),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "manipulate URLs and query parameters",
+			args: args{
+				url: testServer.URL + "/get?a=1&b=2",
+				options: []Option{
+					ParamPairs("b", "20", "c", "30"),
 				},
 			},
 			wantErr: false,

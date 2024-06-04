@@ -13,8 +13,6 @@ import (
 	"net/http"
 	"strings"
 
-	"errors"
-
 	"github.com/Wenchy/requests/internal/auth"
 	"github.com/Wenchy/requests/internal/auth/redirector"
 )
@@ -43,20 +41,21 @@ func (r *Request) WithContext(ctx context.Context) *Request {
 
 // newRequest wraps NewRequestWithContext using context.Background.
 func newRequest(method, url string, opts *Options, stats *Stats) (*Request, error) {
-	// encode query string
-	if len(opts.Params) != 0 {
-		// check raw URL, should not contain character '?'
-		if strings.Contains(url, "?") {
-			return nil, errors.New("params not nil, so raw URL should not contain character '?'")
-		}
-		queryString := opts.Params.Encode()
-		url += "?" + queryString
-	}
 	r, err := http.NewRequest(method, url, opts.Body)
 	if err != nil {
 		return nil, err
 	}
-	// fill headers
+	// query parameters
+	if len(opts.Params) != 0 {
+		q := r.URL.Query()
+		for key, values := range opts.Params {
+			for _, value := range values {
+				q.Add(key, value)
+			}
+		}
+		r.URL.RawQuery = q.Encode()
+	}
+	// headers
 	for key, values := range opts.Headers {
 		for _, value := range values {
 			r.Header.Add(key, value)
