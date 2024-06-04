@@ -1,7 +1,6 @@
 package requests
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,12 +9,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/http/httptrace"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 )
 
 func logInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
@@ -39,7 +40,7 @@ func traceInterceptor(ctx context.Context, r *Request, do Do) (*Response, error)
 		DNSDone:      func(info httptrace.DNSDoneInfo) { log.Printf("done looking up dns: %+v", info) },
 		ConnectStart: func(network, addr string) { log.Printf("starting tcp connection: %s, %s", network, addr) },
 		ConnectDone: func(network, addr string, err error) {
-			log.Printf("tcp connection created: %s, %s, %s", network, addr, err)
+			log.Printf("tcp connection created: %s, %s, %v", network, addr, err)
 		},
 		GotConn: func(info httptrace.GotConnInfo) { log.Printf("connection established: %+v", info) },
 	}
@@ -49,6 +50,12 @@ func traceInterceptor(ctx context.Context, r *Request, do Do) (*Response, error)
 
 func init() {
 	WithInterceptor(logInterceptor, metricInterceptor, traceInterceptor)
+}
+
+type testRequest struct {
+	Headers http.Header
+	Params  url.Values
+	Form    url.Values
 }
 
 func TestGet(t *testing.T) {
@@ -64,28 +71,24 @@ func TestGet(t *testing.T) {
 	type args struct {
 		url     string
 		options []Option
-		timeout time.Duration
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    *Response
 		wantErr bool
 	}{
-		// TODO: Add test cases.
 		{
-			name: "test case 1",
+			name: "basic auth",
 			args: args{
 				url: testServer.URL,
 				options: []Option{
 					BasicAuth("XXX", "OOO"),
 				},
-				timeout: 5 * time.Second,
 			},
 			wantErr: false,
 		},
 		{
-			name: "test case 2",
+			name: "http server not available",
 			args: args{
 				url: "https://127.0.0.1:4004",
 				options: []Option{
@@ -95,29 +98,363 @@ func TestGet(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "test case 3",
-			args: args{
-				url: testServer.URL,
-				options: []Option{
-					ParamPairs("param1", "value1"),
-					ParamPairs("param2", "value2"),
-					HeaderPairs("header1", "value1"),
-					HeaderPairs("header2", "value2"),
-				},
-				timeout: 5 * time.Second,
-			},
-			wantErr: false,
-		},
-		{
 			name: "disable keep alive",
 			args: args{
 				url: testServer.URL,
 				options: []Option{
+					DisableKeepAlives(),
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Get(tt.args.url, tt.args.options...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil {
+				fmt.Printf("response body: %+v\n", got.Text())
+			}
+		})
+	}
+}
+
+func TestGetWithContext(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(2 * time.Second)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer testServer.Close()
+	ctx1s, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	ctx5s, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	type args struct {
+		url     string
+		options []Option
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "with context 1s",
+			args: args{
+				url: testServer.URL,
+				options: []Option{
+					Context(ctx1s),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "with context 3s",
+			args: args{
+				url: testServer.URL,
+				options: []Option{
+					Context(ctx5s),
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Get(tt.args.url, tt.args.options...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil {
+				fmt.Printf("response body: %+v\n", got.Text())
+			}
+		})
+	}
+}
+
+func TestPostBody(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		defer r.Body.Close()
+		if err != nil {
+			t.Errorf("ReadAll failed: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(body)
+	}))
+	defer testServer.Close()
+
+	type args struct {
+		url     string
+		options []Option
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *Response
+		wantErr bool
+	}{
+		{
+			name: "io.Reader body",
+			args: args{
+				url: testServer.URL,
+				options: []Option{
+					Body(strings.NewReader("test1")),
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Post(tt.args.url, tt.args.options...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != nil {
+				t.Logf("status code: %+v", got.StatusCode())
+				t.Logf("headers: %+v", got.Headers())
+				t.Logf("cookies: %+v", got.Cookies())
+				t.Logf("body: %+v", got.Text())
+			} else {
+				t.Logf("Get failed: %v", err)
+			}
+		})
+	}
+}
+
+func TestPostData(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		defer r.Body.Close()
+		if err != nil {
+			t.Errorf("ReadAll failed: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(body)
+	}))
+	defer testServer.Close()
+
+	type args struct {
+		url     string
+		options []Option
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *Response
+		wantErr bool
+	}{
+		{
+			name: "data",
+			args: args{
+				url: testServer.URL,
+				options: []Option{
+					Data("test1"),
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Post(tt.args.url, tt.args.options...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != nil {
+				t.Logf("status code: %+v", got.StatusCode())
+				t.Logf("headers: %+v", got.Headers())
+				t.Logf("cookies: %+v", got.Cookies())
+				t.Logf("body: %+v", got.Text())
+			} else {
+				t.Logf("Get failed: %v", err)
+			}
+		})
+	}
+}
+
+func TestPostForm(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		err := r.ParseForm()
+		require.NoError(t, err)
+		req := testRequest{
+			Headers: r.Header,
+			Params:  r.URL.Query(),
+			Form:    r.Form,
+		}
+		t.Logf("query strings: %v", r.URL.Query())
+		t.Logf("headers: %v", r.Header)
+		w.WriteHeader(http.StatusOK)
+		data, err := json.Marshal(req)
+		require.NoError(t, err)
+		_, err = w.Write(data)
+		require.NoError(t, err)
+	}))
+	defer testServer.Close()
+	type args struct {
+		url     string
+		options []Option
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *testRequest
+		wantErr bool
+	}{
+		{
+			name: "headers",
+			args: args{
+				url: testServer.URL,
+				options: []Option{
+					Headers(map[string]string{"header1": "value1"}),
+					Headers(http.Header{"header2": []string{"value2", "value2-2"}}),
+					HeaderPairs("header1", "value1-2"),
+					HeaderPairs("header2", "value2-3", "header2", "value2-4"),
+				},
+			},
+			want: &testRequest{
+				Headers: http.Header{
+					http.CanonicalHeaderKey("header1"): []string{"value1", "value1-2"},
+					http.CanonicalHeaderKey("header2"): []string{"value2", "value2-2", "value2-3", "value2-4"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "params",
+			args: args{
+				url: testServer.URL,
+				options: []Option{
+					Params(map[string]string{"param1": "value1"}),
+					Params(url.Values{"param2": []string{"value2", "value2-2"}}),
+					ParamPairs("param1", "value1-2"),
+					ParamPairs("param2", "value2-3", "param2", "value2-4"),
+				},
+			},
+			want: &testRequest{
+				Params: url.Values{
+					"param1": []string{"value1", "value1-2"},
+					"param2": []string{"value2", "value2-2", "value2-3", "value2-4"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "form",
+			args: args{
+				url: testServer.URL,
+				options: []Option{
+					Form(map[string]string{"form1": "value1"}),
+					Form(url.Values{"form2": []string{"value2", "value2-2"}}),
+					FormPairs("form1", "value1-2"),
+					FormPairs("form2", "value2-3", "form2", "value2-4"),
+				},
+			},
+			want: &testRequest{
+				Form: url.Values{
+					"form1": []string{"value1", "value1-2"},
+					"form2": []string{"value2", "value2-2", "value2-3", "value2-4"},
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Post(tt.args.url, tt.args.options...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil && tt.want != nil {
+				rsp := &testRequest{}
+				err := got.JSON(rsp)
+				require.NoError(t, err)
+				require.Subsetf(t, rsp.Headers, tt.want.Headers, "some headers missing in HTTP server-side")
+				require.Subsetf(t, rsp.Params, tt.want.Params, "some params missing in HTTP server-side")
+				require.Subsetf(t, rsp.Form, tt.want.Form, "some form data missing in HTTP server-side")
+				fmt.Printf("got testRequest: %+v\n", rsp)
+			}
+		})
+	}
+}
+
+type EchoRequest struct {
+	ID   uint32
+	Name string
+}
+
+type EchoResponse struct {
+	ID   uint32
+	Name string
+}
+
+func TestPostJSON(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("method is not Post: %s", r.Method)
+		}
+		t.Logf("query strings: %v", r.URL.Query())
+		t.Logf("headers: %v", r.Header)
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("ReadAll failed: %v", err)
+		}
+		defer r.Body.Close()
+		var req EchoRequest
+		if err := json.Unmarshal(body, &req); err != nil {
+			t.Errorf("json unmarshal failed:  %v", err)
+		}
+
+		jsonResp := &EchoResponse{
+			ID:   req.ID,
+			Name: "echo " + req.Name,
+		}
+		resBytes, err := json.Marshal(jsonResp)
+		if err != nil {
+			t.Errorf("json marshal failed: %v", err)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(resBytes)
+	}))
+	defer testServer.Close()
+
+	var jsonResp EchoResponse
+	var textResp string
+	var reqDump, respDump string
+	type args struct {
+		url     string
+		options []Option
+		timeout time.Duration
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *Response
+		wantErr bool
+	}{
+		{
+			name: "json-request-and-response",
+			args: args{
+				url: testServer.URL,
+				options: []Option{
 					ParamPairs("param1", "value1"),
 					ParamPairs("param2", "value2"),
 					HeaderPairs("header1", "value1"),
 					HeaderPairs("header2", "value2"),
-					DisableKeepAlives(),
+					JSON(&EchoRequest{ID: 1, Name: "Hello"}),
+					ToJSON(&jsonResp),
+					ToText(&textResp),
+					Dump(&reqDump, &respDump),
 				},
 				timeout: 5 * time.Second,
 			},
@@ -129,26 +466,28 @@ func TestGet(t *testing.T) {
 			if tt.args.timeout != 0 {
 				SetEnvTimeout(tt.args.timeout)
 			}
-			got, err := Get(tt.args.url, tt.args.options...)
+			got, err := Post(tt.args.url, tt.args.options...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != nil {
-				fmt.Printf("status code: %v\n", got.StatusCode())
-				fmt.Printf("headers: %+v\n", got.Headers())
-				fmt.Printf("cookies: %+v\n", got.Cookies())
+				t.Logf("status code: %+v", got.StatusCode())
+				t.Logf("headers: %+v", got.Headers())
+				t.Logf("cookies: %+v", got.Cookies())
+				t.Logf("body: %+v", got.Text())
+				t.Logf("body(text): %+v", textResp)
+				t.Logf("body(json): %+v", jsonResp)
+				t.Logf("Request(dump):\n%s", reqDump)
+				t.Logf("Response(dump):\n%s", respDump)
 			} else {
-				fmt.Printf("Get failed: %v\n", err)
+				t.Logf("Get failed: %v", err)
 			}
-			// if !reflect.DeepEqual(got, tt.want) {
-			// 	t.Errorf("Get() = %v, want %v", got, tt.want)
-			// }
 		})
 	}
 }
 
-func TestPost(t *testing.T) {
+func TestPostFiles(t *testing.T) {
 	filename1 := "./testdata/file1.txt"
 	filename2 := "./testdata/file2.txt"
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -156,23 +495,15 @@ func TestPost(t *testing.T) {
 			// Go 1.17: net/http: multipart form should not include directory path in filename
 			// Refer: https://github.com/golang/go/issues/45789
 			file, header, err := r.FormFile(formKey)
-			if err != nil {
-				return errors.Wrapf(err, "get form file: %s failed", formKey)
-			}
+			require.NoErrorf(t, err, "get form file: %s failed", formKey)
 			defer file.Close()
 			got, err := io.ReadAll(file)
-			if err != nil {
-				return errors.Wrap(err, "read all failed")
-			}
+			require.NoError(t, err)
 			path := filepath.Join("./testdata/", header.Filename)
 			src, err := os.ReadFile(path)
-			if err != nil {
-				return errors.Wrapf(err, "read file: %s failed", path)
-			}
-			diff := bytes.Compare(got, src)
-			if diff != 0 {
-				errors.Errorf("inconsistent content, expect: %s, got: %s", string(src), string(got))
-			}
+			require.NoError(t, err)
+
+			require.Equalf(t, string(src), string(got), "content not same: %s", formKey)
 			return nil
 		}
 
@@ -217,7 +548,6 @@ func TestPost(t *testing.T) {
 		want    *Response
 		wantErr bool
 	}{
-		// TODO: Add test cases.
 		{
 			name: "upload file test case 1",
 			args: args{
@@ -286,7 +616,6 @@ func TestPatch(t *testing.T) {
 		want    *Response
 		wantErr bool
 	}{
-		// TODO: Add test cases.
 		{
 			name: "patch test case 1",
 			args: args{
@@ -325,109 +654,6 @@ func TestPatch(t *testing.T) {
 			}
 			if resp != nil {
 				t.Logf("resp: %s", resp.Text())
-			}
-		})
-	}
-}
-
-type EchoRequest struct {
-	ID   uint32
-	Name string
-}
-
-type EchoResponse struct {
-	ID   uint32
-	Name string
-}
-
-func TestPostJson(t *testing.T) {
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("method is not Post: %s", r.Method)
-		}
-		t.Logf("query strings: %v", r.URL.Query())
-		t.Logf("headers: %v", r.Header)
-
-		defer r.Body.Close()
-
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Errorf("ReadAll failed: %v", err)
-		}
-		var req EchoRequest
-		if err := json.Unmarshal(body, &req); err != nil {
-			t.Errorf("json unmarshal failed:  %v", err)
-		}
-
-		jsonResp := &EchoResponse{
-			ID:   req.ID,
-			Name: "echo " + req.Name,
-		}
-		resBytes, err := json.Marshal(jsonResp)
-		if err != nil {
-			t.Errorf("json marshal failed: %v", err)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		w.Write(resBytes)
-	}))
-	defer testServer.Close()
-
-	var jsonResp EchoResponse
-	var textResp string
-	var reqDump, respDump string
-	type args struct {
-		url     string
-		options []Option
-		timeout time.Duration
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *Response
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-		{
-			name: "json-request-and-response",
-			args: args{
-				url: testServer.URL,
-				options: []Option{
-					ParamPairs("param1", "value1"),
-					ParamPairs("param2", "value2"),
-					HeaderPairs("header1", "value1"),
-					HeaderPairs("header2", "value2"),
-					JSON(&EchoRequest{ID: 1, Name: "Hello"}),
-					ToJSON(&jsonResp),
-					ToText(&textResp),
-					Dump(&reqDump, &respDump),
-				},
-				timeout: 5 * time.Second,
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.args.timeout != 0 {
-				SetEnvTimeout(tt.args.timeout)
-			}
-			got, err := Post(tt.args.url, tt.args.options...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != nil {
-				t.Logf("status code: %+v", got.StatusCode())
-				t.Logf("headers: %+v", got.Headers())
-				t.Logf("cookies: %+v", got.Cookies())
-				t.Logf("body: %+v", got.Text())
-				t.Logf("body(text): %+v", textResp)
-				t.Logf("body(json): %+v", jsonResp)
-				t.Logf("Request(dump):\n%s", reqDump)
-				t.Logf("Response(dump):\n%s", respDump)
-			} else {
-				t.Logf("Get failed: %v", err)
 			}
 		})
 	}
