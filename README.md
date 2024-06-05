@@ -44,7 +44,7 @@ An elegant and simple HTTP client package, which learned a lot from the well-kno
 
 ## Examples
 
-### Simple GET into a text string
+### Simple GET a text
 
 <table>
 <thead>
