@@ -44,7 +44,7 @@ An elegant and simple HTTP client package, which learned a lot from the well-kno
 
 ## Examples
 
-### Simple GET into a text string
+### Simple GET a text
 
 <table>
 <thead>
@@ -89,7 +89,7 @@ if err != nil {
 
 </td>
 </tr>
-<tr><td>14+ lines</td><td>5 lines</td></tr>
+<tr><td>14+ lines</td><td>4+ lines</td></tr>
 </tbody>
 </table>
 
@@ -142,7 +142,7 @@ if err != nil {
 </tr>
 <tr><td>15+ lines</td><td>4+ lines</td></tr></tbody></table>
 
-### GET a JSON object
+### GET a JSON object with context
 
 <table>
 <thead>
@@ -186,6 +186,7 @@ if err != nil {
 ```go
 var res JSONResponse
 r, err := requests.Post("http://example.com",
+            requests.Context(ctx),
             requests.ToJSON(&res))
 if err != nil {
     // ...
@@ -194,7 +195,7 @@ if err != nil {
 
 </td>
 </tr>
-<tr><td>22+ lines</td><td>5 lines</td></tr></tbody></table>
+<tr><td>22+ lines</td><td>5+ lines</td></tr></tbody></table>
 
 ### POST a JSON object and parse the response
 
@@ -208,9 +209,6 @@ var res JSONResponse
 r, err := requests.Post("http://example.com",
             requests.JSON(&req),
             requests.ToJSON(&res))
-if err != nil {
-    // ...
-}
 ```
 
 ### Set custom header and form for a request
@@ -220,9 +218,6 @@ if err != nil {
 r, err := requests.Post("http://example.com", 
             requests.HeaderPairs("martini", "shaken"),
             requests.FormPairs("name", "Jacky"))
-if err != nil {
-    // ...
-}
 ```
 
 ### Easily manipulate URLs and query parameters
@@ -231,7 +226,6 @@ if err != nil {
 // Set parameters
 r, err := requests.Get("http://example.com?a=1&b=2", 
             requests.ParamPairs("c", "3"))
-if err != nil { /* ... */ }
 // URL: http://example.com?a=1&b=2&c=3
 ```
 
