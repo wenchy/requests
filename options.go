@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -14,15 +16,18 @@ import (
 type Options struct {
 	ctx context.Context
 
-	Headers map[string]string
-	Params  map[string]string
+	Headers http.Header
+	Params  url.Values
+
 	// body
-	Body io.Reader
+	bodyType bodyType
+	Body     io.Reader
 	// different request body types
 	Data  any
-	Form  map[string]string
+	Form  url.Values
 	JSON  any
 	Files map[string]*os.File
+
 	// different response body types
 	ToText *string
 	ToJSON any
@@ -52,64 +57,131 @@ func Context(ctx context.Context) Option {
 	}
 }
 
-// Headers sets the HTTP headers.
-func Headers(headers map[string]string) Option {
+// Headers sets the HTTP headers. The keys should be in canonical form, as
+// returned by [http.CanonicalHeaderKey].
+//
+// Two types are supported:
+//
+// # map[string]string
+//
+//		map[string]string(
+//	    	"Header-Key1", "val1",
+//	    	"Header-Key2", "val2",
+//		)
+//
+// # http.Header
+//
+//		http.Header(
+//	    	"Header-Key1", []string{"val1", "val1-2"},
+//	    	"Header-Key2", "val2",
+//		)
+//
+// [http.CanonicalHeaderKey]: https://pkg.go.dev/net/http#CanonicalHeaderKey
+func Headers[T map[string]string | http.Header](headers T) Option {
 	return func(opts *Options) {
-		if opts.Headers != nil {
+		switch headers := any(headers).(type) {
+		case map[string]string:
 			for k, v := range headers {
-				opts.Headers[k] = v
+				opts.Headers.Add(k, v)
 			}
-		} else {
-			opts.Headers = headers
+		case http.Header:
+			for key, values := range headers {
+				for _, value := range values {
+					opts.Headers.Add(key, value)
+				}
+			}
 		}
 	}
 }
 
-// HeaderPairs sets HTTP headers formed by the mapping of key, value ...
-// Pairs panics if len(kv) is odd.
+// HeaderPairs sets HTTP headers formed by the mapping of key-value pairs.
+// The keys should be in canonical form, as returned by
+// [http.CanonicalHeaderKey]. It panics if len(kv) is odd.
+//
+// Values with the same key will be merged into a list:
+//
+//		HeaderPairs(
+//	    	"Key1", "val1",
+//	    	"Key1", "val1-2", // "Key1" will have map value []string{"val1", "val1-2"}
+//	    	"Key2", "val2",
+//		)
+//
+// [http.CanonicalHeaderKey]: https://pkg.go.dev/net/http#CanonicalHeaderKey
 func HeaderPairs(kv ...string) Option {
 	if len(kv)%2 == 1 {
 		panic(fmt.Sprintf("params: got the odd number of input pairs: %d", len(kv)))
 	}
-	headers := map[string]string{}
+	headers := http.Header{}
 	var key string
 	for i, s := range kv {
 		if i%2 == 0 {
 			key = s
 			continue
 		}
-		headers[key] = s
+		headers.Add(key, s)
 	}
 	return Headers(headers)
 }
 
-// Params sets the given params into the URL querystring.
-func Params(params map[string]string) Option {
+// Params sets the given query parameters into the URL query string.
+//
+// Two types are supported:
+//
+// # map[string]string
+//
+//		map[string]string(
+//	    	"key1", "val1",
+//	    	"key2", "val2",
+//		)
+//
+// # url.Values
+//
+//		url.Values(
+//	    	"key1", []string{"val1", "val1-2"},
+//	    	"key2", "val2",
+//		)
+func Params[T map[string]string | url.Values](params T) Option {
 	return func(opts *Options) {
-		if opts.Params != nil {
+		if opts.Params == nil {
+			opts.Params = url.Values{}
+		}
+		switch params := any(params).(type) {
+		case map[string]string:
 			for k, v := range params {
-				opts.Params[k] = v
+				opts.Params.Add(k, v)
 			}
-		} else {
-			opts.Params = params
+		case url.Values:
+			for key, values := range params {
+				for _, value := range values {
+					opts.Params.Add(key, value)
+				}
+			}
 		}
 	}
 }
 
-// ParamPairs returns an Params formed by the mapping of key, value ...
-// Pairs panics if len(kv) is odd.
+// ParamPairs sets the query parameters formed by the mapping of key-value pairs.
+// It panics if len(kv) is odd.
+//
+// Values with the same key will be merged into a list:
+//
+//		ParamPairs(
+//	    	"key1", "val1",
+//	    	"key1", "val1-2", // "key1" will have map value []string{"val1", "val1-2"}
+//	    	"key2", "val2",
+//		)
 func ParamPairs(kv ...string) Option {
 	if len(kv)%2 == 1 {
 		panic(fmt.Sprintf("params: got the odd number of input pairs: %d", len(kv)))
 	}
-	params := map[string]string{}
+	params := url.Values{}
 	var key string
 	for i, s := range kv {
 		if i%2 == 0 {
 			key = s
 			continue
 		}
-		params[key] = s
+		params.Add(key, s)
 	}
 	return Params(params)
 }
@@ -118,6 +190,7 @@ func ParamPairs(kv ...string) Option {
 func Body(body io.Reader) Option {
 	return func(opts *Options) {
 		opts.Body = body
+		opts.bodyType = bodyTypeDefault
 	}
 }
 
@@ -125,31 +198,71 @@ func Body(body io.Reader) Option {
 func Data(data any) Option {
 	return func(opts *Options) {
 		opts.Data = data
+		opts.bodyType = bodyTypeData
 	}
 }
 
-// Form sets the given form into the request body.
+// Form sets the given form values into the request body.
 // It also sets the Content-Type as "application/x-www-form-urlencoded".
-func Form(form map[string]string) Option {
+//
+// Two types are supported:
+//
+// # map[string]string
+//
+//		map[string]string(
+//	    	"key1", "val1",
+//	    	"key2", "val2",
+//		)
+//
+// # url.Values
+//
+//		url.Values(
+//	    	"key1", []string{"val1", "val1-2"},
+//	    	"key2", "val2",
+//		)
+func Form[T map[string]string | url.Values](params T) Option {
 	return func(opts *Options) {
-		opts.Form = form
+		if opts.Form == nil {
+			opts.Form = url.Values{}
+		}
+		switch params := any(params).(type) {
+		case map[string]string:
+			for k, v := range params {
+				opts.Form.Add(k, v)
+			}
+		case url.Values:
+			for key, values := range params {
+				for _, value := range values {
+					opts.Form.Add(key, value)
+				}
+			}
+		}
+		opts.bodyType = bodyTypeForm
 	}
 }
 
-// FormPairs sets form by the mapping of key, value ...
-// Pairs panics if len(kv) is odd.
+// FormPairs sets form values by the mapping of key-value pairs.
+// It panics if len(kv) is odd.
+//
+// Values with the same key will be merged into a list:
+//
+//		FormPairs(
+//	    	"key1", "val1",
+//	    	"key1", "val1-2", // "key1" will have map value []string{"val1", "val1-2"}
+//	    	"key2", "val2",
+//		)
 func FormPairs(kv ...string) Option {
 	if len(kv)%2 == 1 {
 		panic(fmt.Sprintf("params: got the odd number of input pairs: %d", len(kv)))
 	}
-	form := map[string]string{}
+	form := url.Values{}
 	var key string
 	for i, s := range kv {
 		if i%2 == 0 {
 			key = s
 			continue
 		}
-		form[key] = s
+		form.Add(key, s)
 	}
 	return Form(form)
 }
@@ -159,6 +272,22 @@ func FormPairs(kv ...string) Option {
 func JSON(v any) Option {
 	return func(opts *Options) {
 		opts.JSON = v
+		opts.bodyType = bodyTypeJSON
+	}
+}
+
+// Files sets files to a map of (field, fileHandler).
+// It also sets the Content-Type as "multipart/form-data".
+func Files(files map[string]*os.File) Option {
+	return func(opts *Options) {
+		if opts.Files != nil {
+			for k, v := range files {
+				opts.Files[k] = v
+			}
+		} else {
+			opts.Files = files
+		}
+		opts.bodyType = bodyTypeFiles
 	}
 }
 
@@ -183,20 +312,6 @@ func BasicAuth(username, password string) Option {
 			Type:     auth.BasicAuth,
 			Username: username,
 			Password: password,
-		}
-	}
-}
-
-// Files sets files to a map of (field, fileHandler).
-// It also sets the Content-Type as "multipart/form-data".
-func Files(files map[string]*os.File) Option {
-	return func(opts *Options) {
-		if opts.Files != nil {
-			for k, v := range files {
-				opts.Files[k] = v
-			}
-		} else {
-			opts.Files = files
 		}
 	}
 }
@@ -240,11 +355,9 @@ func Dump(req, resp *string) Option {
 // newDefaultOptions creates a new default HTTP options.
 func newDefaultOptions() *Options {
 	return &Options{
-		Headers: map[string]string{},
-		Params:  map[string]string{},
-		Form:    nil,
-		JSON:    nil,
-		Timeout: env.timeout,
+		Headers:  http.Header{},
+		bodyType: bodyTypeDefault,
+		Timeout:  env.timeout,
 	}
 }
 

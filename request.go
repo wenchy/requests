@@ -11,10 +11,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"strings"
-
-	"errors"
 
 	"github.com/Wenchy/requests/internal/auth"
 	"github.com/Wenchy/requests/internal/auth/redirector"
@@ -23,7 +20,7 @@ import (
 // Request is a wrapper of http.Request.
 type Request struct {
 	*http.Request
-	opts *Options
+	opts  *Options
 	Stats *Stats
 }
 
@@ -43,27 +40,25 @@ func (r *Request) WithContext(ctx context.Context) *Request {
 }
 
 // newRequest wraps NewRequestWithContext using context.Background.
-func newRequest(method, urlStr string, opts *Options, stats *Stats) (*Request, error) {
-	if len(opts.Params) != 0 {
-		// check raw URL, should not contain character '?'
-		if strings.Contains(urlStr, "?") {
-			return nil, errors.New("params not nil, so raw URL should not contain character '?'")
-		}
-		queryValues := url.Values{}
-		for k, v := range opts.Params {
-			queryValues.Add(k, v)
-		}
-		queryString := queryValues.Encode()
-		urlStr += "?" + queryString
-	}
-	r, err := http.NewRequest(method, urlStr, opts.Body)
+func newRequest(method, url string, opts *Options, stats *Stats) (*Request, error) {
+	r, err := http.NewRequest(method, url, opts.Body)
 	if err != nil {
 		return nil, err
 	}
-	// fill request headers
-	if opts.Headers != nil {
-		for k, v := range opts.Headers {
-			r.Header.Set(k, v)
+	// query parameters
+	if len(opts.Params) != 0 {
+		q := r.URL.Query()
+		for key, values := range opts.Params {
+			for _, value := range values {
+				q.Add(key, value)
+			}
+		}
+		r.URL.RawQuery = q.Encode()
+	}
+	// headers
+	for key, values := range opts.Headers {
+		for _, value := range values {
+			r.Header.Add(key, value)
 		}
 	}
 	// auth
@@ -179,15 +174,11 @@ func requestForm(method, urlStr string, opts *Options) (*Response, error) {
 	stats := &Stats{}
 	var body *strings.Reader
 	if opts.Form != nil {
-		formValues := url.Values{}
-		for k, v := range opts.Form {
-			formValues.Add(k, v)
-		}
-		d := formValues.Encode()
+		d := opts.Form.Encode()
 		stats.BodySize = len(d)
 		body = strings.NewReader(d)
 	}
-	opts.Headers["Content-Type"] = "application/x-www-form-urlencoded"
+	opts.Headers.Set("Content-Type", "application/x-www-form-urlencoded")
 	opts.Body = body
 	return do(method, urlStr, opts, stats)
 }
@@ -205,7 +196,7 @@ func requestJSON(method, url string, opts *Options) (*Response, error) {
 		body = bytes.NewBuffer(d)
 	}
 
-	opts.Headers["Content-Type"] = "application/json"
+	opts.Headers.Set("Content-Type", "application/json")
 	opts.Body = body
 	return do(method, url, opts, stats)
 }
@@ -232,7 +223,7 @@ func requestFiles(method, url string, opts *Options) (*Response, error) {
 		}
 	}
 
-	opts.Headers["Content-Type"] = bodyWriter.FormDataContentType()
+	opts.Headers.Set("Content-Type", bodyWriter.FormDataContentType())
 	opts.Body = &body
 	// write EOF before sending
 	if err := bodyWriter.Close(); err != nil {
@@ -251,20 +242,6 @@ const (
 	bodyTypeFiles
 )
 
-func inferBodyType(opts *Options) bodyType {
-	if opts.Data != nil {
-		return bodyTypeData
-	} else if opts.Form != nil {
-		return bodyTypeForm
-	} else if opts.JSON != nil {
-		return bodyTypeJSON
-	} else if opts.Files != nil {
-		return bodyTypeFiles
-	} else {
-		return bodyTypeDefault
-	}
-}
-
 type dispatcher func(method, url string, opts *Options) (*Response, error)
 
 var dispatchers map[bodyType]dispatcher
@@ -281,6 +258,5 @@ func init() {
 
 func callMethod(method, url string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
-	bodyType := inferBodyType(opts)
-	return dispatchers[bodyType](method, url, opts)
+	return dispatchers[opts.bodyType](method, url, opts)
 }
