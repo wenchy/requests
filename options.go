@@ -58,23 +58,21 @@ func Context(ctx context.Context) Option {
 }
 
 // Headers sets the HTTP headers. The keys should be in canonical form, as
-// returned by [http.CanonicalHeaderKey].
+// returned by [http.CanonicalHeaderKey]. Two types are supported:
 //
-// Two types are supported:
+// # Type 1: map[string]string
 //
-// # map[string]string
+//	map[string]string(
+//		"Header-Key1", "val1",
+//		"Header-Key2", "val2",
+//	)
 //
-//		map[string]string(
-//	    	"Header-Key1", "val1",
-//	    	"Header-Key2", "val2",
-//		)
+// # Type 2: http.Header
 //
-// # http.Header
-//
-//		http.Header(
-//	    	"Header-Key1", []string{"val1", "val1-2"},
-//	    	"Header-Key2", "val2",
-//		)
+//	http.Header(
+//		"Header-Key1", []string{"val1", "val1-2"},
+//		"Header-Key2", "val2",
+//	)
 //
 // [http.CanonicalHeaderKey]: https://pkg.go.dev/net/http#CanonicalHeaderKey
 func Headers[T map[string]string | http.Header](headers T) Option {
@@ -100,11 +98,11 @@ func Headers[T map[string]string | http.Header](headers T) Option {
 //
 // Values with the same key will be merged into a list:
 //
-//		HeaderPairs(
-//	    	"Key1", "val1",
-//	    	"Key1", "val1-2", // "Key1" will have map value []string{"val1", "val1-2"}
-//	    	"Key2", "val2",
-//		)
+//	HeaderPairs(
+//		"Key1", "val1",
+//		"Key1", "val1-2", // "Key1" will have map value []string{"val1", "val1-2"}
+//		"Key2", "val2",
+//	)
 //
 // [http.CanonicalHeaderKey]: https://pkg.go.dev/net/http#CanonicalHeaderKey
 func HeaderPairs(kv ...string) Option {
@@ -124,22 +122,21 @@ func HeaderPairs(kv ...string) Option {
 }
 
 // Params sets the given query parameters into the URL query string.
-//
 // Two types are supported:
 //
-// # map[string]string
+// # Type 1: map[string]string
 //
-//		map[string]string(
-//	    	"key1", "val1",
-//	    	"key2", "val2",
-//		)
+//	map[string]string(
+//		"key1", "val1",
+//		"key2", "val2",
+//	)
 //
-// # url.Values
+// # Type 2: url.Values
 //
-//		url.Values(
-//	    	"key1", []string{"val1", "val1-2"},
-//	    	"key2", "val2",
-//		)
+//	url.Values(
+//		"key1", []string{"val1", "val1-2"},
+//		"key2", "val2",
+//	)
 func Params[T map[string]string | url.Values](params T) Option {
 	return func(opts *Options) {
 		if opts.Params == nil {
@@ -165,11 +162,11 @@ func Params[T map[string]string | url.Values](params T) Option {
 //
 // Values with the same key will be merged into a list:
 //
-//		ParamPairs(
-//	    	"key1", "val1",
-//	    	"key1", "val1-2", // "key1" will have map value []string{"val1", "val1-2"}
-//	    	"key2", "val2",
-//		)
+//	ParamPairs(
+//		"key1", "val1",
+//		"key1", "val1-2", // "key1" will have map value []string{"val1", "val1-2"}
+//		"key2", "val2",
+//	)
 func ParamPairs(kv ...string) Option {
 	if len(kv)%2 == 1 {
 		panic(fmt.Sprintf("params: got the odd number of input pairs: %d", len(kv)))
@@ -204,22 +201,21 @@ func Data(data any) Option {
 
 // Form sets the given form values into the request body.
 // It also sets the Content-Type as "application/x-www-form-urlencoded".
-//
 // Two types are supported:
 //
-// # map[string]string
+// # Type 1: map[string]string
 //
-//		map[string]string(
-//	    	"key1", "val1",
-//	    	"key2", "val2",
-//		)
+//	map[string]string(
+//		"key1", "val1",
+//		"key2", "val2",
+//	)
 //
-// # url.Values
+// # Type 2: url.Values
 //
-//		url.Values(
-//	    	"key1", []string{"val1", "val1-2"},
-//	    	"key2", "val2",
-//		)
+//	url.Values(
+//		"key1", []string{"val1", "val1-2"},
+//		"key2", "val2",
+//	)
 func Form[T map[string]string | url.Values](params T) Option {
 	return func(opts *Options) {
 		if opts.Form == nil {
@@ -246,11 +242,11 @@ func Form[T map[string]string | url.Values](params T) Option {
 //
 // Values with the same key will be merged into a list:
 //
-//		FormPairs(
-//	    	"key1", "val1",
-//	    	"key1", "val1-2", // "key1" will have map value []string{"val1", "val1-2"}
-//	    	"key2", "val2",
-//		)
+//	FormPairs(
+//		"key1", "val1",
+//		"key1", "val1-2", // "key1" will have map value []string{"val1", "val1-2"}
+//		"key2", "val2",
+//	)
 func FormPairs(kv ...string) Option {
 	if len(kv)%2 == 1 {
 		panic(fmt.Sprintf("params: got the odd number of input pairs: %d", len(kv)))

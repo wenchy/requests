@@ -39,7 +39,7 @@ func (r *Request) WithContext(ctx context.Context) *Request {
 	return r
 }
 
-// newRequest wraps NewRequestWithContext using context.Background.
+// newRequest creates a new HTTP request.
 func newRequest(method, url string, opts *Options, stats *Stats) (*Request, error) {
 	r, err := http.NewRequest(method, url, opts.Body)
 	if err != nil {
