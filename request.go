@@ -148,6 +148,7 @@ func request(method, url string, opts *Options) (*Response, error) {
 			return nil, err
 		}
 		stats.BodySize = int(n)
+		opts.Body = buf
 	}
 	return do(method, url, opts, stats)
 }
