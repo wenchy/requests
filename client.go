@@ -21,13 +21,6 @@ type Client struct {
 
 // Do sends the HTTP request and returns after response is received.
 func (c *Client) Do(ctx context.Context, r *Request) (*Response, error) {
-	if env.interceptor != nil {
-		return env.interceptor(ctx, r, c.do)
-	}
-	return c.do(ctx, r)
-}
-
-func (c *Client) do(ctx context.Context, r *Request) (*Response, error) {
 	if r.opts.DumpRequestOut != nil {
 		reqDump, err := httputil.DumpRequestOut(r.Request, true)
 		if err != nil {
@@ -38,6 +31,13 @@ func (c *Client) do(ctx context.Context, r *Request) (*Response, error) {
 	if ctx != nil {
 		r = r.WithContext(ctx)
 	}
+	if env.interceptor != nil {
+		return env.interceptor(ctx, r, c.do)
+	}
+	return c.do(ctx, r)
+}
+
+func (c *Client) do(ctx context.Context, r *Request) (*Response, error) {
 	// If the returned error is nil, the Response will contain
 	// a non-nil Body which the user is expected to close.
 	resp, err := c.Client.Do(r.Request)
