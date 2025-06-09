@@ -141,14 +141,14 @@ func do(method, url string, opts *Options, stats *Stats) (*Response, error) {
 func request(method, url string, opts *Options) (*Response, error) {
 	stats := &Stats{}
 	// NOTE: get the body size from io.Reader. It is costy for large body.
-	buf := &bytes.Buffer{}
+	var body bytes.Buffer
 	if opts.Body != nil {
-		n, err := io.Copy(buf, opts.Body)
+		_, err := io.Copy(&body, opts.Body)
 		if err != nil {
 			return nil, err
 		}
-		stats.BodySize = int(n)
-		opts.Body = buf
+		opts.Body = &body
+		stats.BodySize = body.Len()
 	}
 	return do(method, url, opts, stats)
 }
@@ -160,8 +160,8 @@ func requestData(method, url string, opts *Options) (*Response, error) {
 	var body *strings.Reader
 	if opts.Data != nil {
 		d := fmt.Sprintf("%v", opts.Data)
-		stats.BodySize = len(d)
 		body = strings.NewReader(d)
+		stats.BodySize = body.Len()
 	}
 	// TODO: judge content type
 	// opts.Headers["Content-Type"] = "application/x-www-form-urlencoded"
@@ -176,8 +176,8 @@ func requestForm(method, urlStr string, opts *Options) (*Response, error) {
 	var body *strings.Reader
 	if opts.Form != nil {
 		d := opts.Form.Encode()
-		stats.BodySize = len(d)
 		body = strings.NewReader(d)
+		stats.BodySize = body.Len()
 	}
 	opts.Headers.Set("Content-Type", "application/x-www-form-urlencoded")
 	opts.Body = body
@@ -193,10 +193,9 @@ func requestJSON(method, url string, opts *Options) (*Response, error) {
 		if err != nil {
 			return nil, err
 		}
-		stats.BodySize = len(d)
 		body = bytes.NewBuffer(d)
+		stats.BodySize = body.Len()
 	}
-
 	opts.Headers.Set("Content-Type", "application/json")
 	opts.Body = body
 	return do(method, url, opts, stats)
@@ -216,20 +215,15 @@ func requestFiles(method, url string, opts *Options) (*Response, error) {
 			if _, err := io.Copy(fileWriter, f); err != nil {
 				return nil, err
 			}
-			fi, err := f.Stat()
-			if err != nil {
-				return nil, err
-			}
-			stats.BodySize += int(fi.Size())
 		}
 	}
-
-	opts.Headers.Set("Content-Type", bodyWriter.FormDataContentType())
-	opts.Body = &body
 	// write EOF before sending
 	if err := bodyWriter.Close(); err != nil {
 		return nil, err
 	}
+	opts.Headers.Set("Content-Type", bodyWriter.FormDataContentType())
+	opts.Body = &body
+	stats.BodySize = body.Len()
 	return do(method, url, opts, stats)
 }
 
