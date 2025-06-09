@@ -2,6 +2,8 @@ package requests
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -322,6 +324,7 @@ func TestPostForm(t *testing.T) {
 				options: []Option{
 					Headers(map[string]string{"header1": "value1"}),
 					Headers(http.Header{"header2": []string{"value2", "value2-2"}}),
+					Headers(map[string]SignFn{"sign": func(string) string { return "sign1" }}),
 					HeaderPairs("header1", "value1-2"),
 					HeaderPairs("header2", "value2-3", "header2", "value2-4"),
 				},
@@ -330,6 +333,7 @@ func TestPostForm(t *testing.T) {
 				Headers: http.Header{
 					http.CanonicalHeaderKey("header1"): []string{"value1", "value1-2"},
 					http.CanonicalHeaderKey("header2"): []string{"value2", "value2-2", "value2-3", "value2-4"},
+					http.CanonicalHeaderKey("sign"):    []string{"sign1"},
 				},
 			},
 			wantErr: false,
@@ -341,6 +345,7 @@ func TestPostForm(t *testing.T) {
 				options: []Option{
 					Params(map[string]string{"param1": "value1"}),
 					Params(url.Values{"param2": []string{"value2", "value2-2"}}),
+					Params(map[string]SignFn{"sign": func(string) string { return "sign1" }}),
 					ParamPairs("param1", "value1-2"),
 					ParamPairs("param2", "value2-3", "param2", "value2-4"),
 				},
@@ -349,6 +354,7 @@ func TestPostForm(t *testing.T) {
 				Params: url.Values{
 					"param1": []string{"value1", "value1-2"},
 					"param2": []string{"value2", "value2-2", "value2-3", "value2-4"},
+					"sign":   []string{"sign1"},
 				},
 			},
 			wantErr: false,
@@ -458,6 +464,7 @@ func TestPostJSON(t *testing.T) {
 					ParamPairs("param2", "value2"),
 					HeaderPairs("header1", "value1"),
 					HeaderPairs("header2", "value2"),
+					Headers(map[string]SignFn{"sign": func(body string) string { return hex.EncodeToString(md5.New().Sum([]byte(body))) }}),
 					JSON(&EchoRequest{ID: 1, Name: "Hello"}),
 					ToJSON(&jsonResp),
 					ToText(&textResp),

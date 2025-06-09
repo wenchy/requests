@@ -12,6 +12,9 @@ import (
 	"github.com/Wenchy/requests/internal/auth"
 )
 
+// SignFn parses signature from request body.
+type SignFn = func(body string) string
+
 // Options defines all optional parameters for HTTP request.
 type Options struct {
 	ctx context.Context
@@ -19,9 +22,12 @@ type Options struct {
 	Headers http.Header
 	Params  url.Values
 
+	HeaderSignFns map[string][]SignFn
+	ParamSignFns  map[string][]SignFn
+
 	// body
 	bodyType bodyType
-	Body     io.Reader
+	Body     string
 	// different request body types
 	Data  any
 	Form  url.Values
@@ -75,12 +81,16 @@ func Context(ctx context.Context) Option {
 //	)
 //
 // [http.CanonicalHeaderKey]: https://pkg.go.dev/net/http#CanonicalHeaderKey
-func Headers[T map[string]string | http.Header](headers T) Option {
+func Headers[T map[string]string | map[string]SignFn | http.Header](headers T) Option {
 	return func(opts *Options) {
 		switch headers := any(headers).(type) {
 		case map[string]string:
 			for k, v := range headers {
 				opts.Headers.Add(k, v)
+			}
+		case map[string]SignFn:
+			for k, v := range headers {
+				opts.HeaderSignFns[k] = append(opts.HeaderSignFns[k], v)
 			}
 		case http.Header:
 			for key, values := range headers {
@@ -137,15 +147,16 @@ func HeaderPairs(kv ...string) Option {
 //		"key1", []string{"val1", "val1-2"},
 //		"key2", "val2",
 //	)
-func Params[T map[string]string | url.Values](params T) Option {
+func Params[T map[string]string | map[string]SignFn | url.Values](params T) Option {
 	return func(opts *Options) {
-		if opts.Params == nil {
-			opts.Params = url.Values{}
-		}
 		switch params := any(params).(type) {
 		case map[string]string:
 			for k, v := range params {
 				opts.Params.Add(k, v)
+			}
+		case map[string]SignFn:
+			for k, v := range params {
+				opts.ParamSignFns[k] = append(opts.ParamSignFns[k], v)
 			}
 		case url.Values:
 			for key, values := range params {
@@ -186,7 +197,8 @@ func ParamPairs(kv ...string) Option {
 // Body sets io.Reader to hold request body.
 func Body(body io.Reader) Option {
 	return func(opts *Options) {
-		opts.Body = body
+		bytes, _ := io.ReadAll(body)
+		opts.Body = string(bytes)
 		opts.bodyType = bodyTypeDefault
 	}
 }
@@ -351,9 +363,12 @@ func Dump(req, resp *string) Option {
 // newDefaultOptions creates a new default HTTP options.
 func newDefaultOptions() *Options {
 	return &Options{
-		Headers:  http.Header{},
-		bodyType: bodyTypeDefault,
-		Timeout:  env.timeout,
+		Headers:       http.Header{},
+		Params:        url.Values{},
+		HeaderSignFns: map[string][]SignFn{},
+		ParamSignFns:  map[string][]SignFn{},
+		bodyType:      bodyTypeDefault,
+		Timeout:       env.timeout,
 	}
 }
 

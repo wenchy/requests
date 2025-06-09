@@ -4,7 +4,6 @@
 package requests
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -41,24 +40,32 @@ func (r *Request) WithContext(ctx context.Context) *Request {
 
 // newRequest creates a new HTTP request.
 func newRequest(method, url string, opts *Options, stats *Stats) (*Request, error) {
-	r, err := http.NewRequest(method, url, opts.Body)
+	r, err := http.NewRequest(method, url, strings.NewReader(opts.Body))
 	if err != nil {
 		return nil, err
 	}
 	// query parameters
-	if len(opts.Params) != 0 {
-		q := r.URL.Query()
-		for key, values := range opts.Params {
-			for _, value := range values {
-				q.Add(key, value)
-			}
+	q := r.URL.Query()
+	for key, values := range opts.Params {
+		for _, value := range values {
+			q.Add(key, value)
 		}
-		r.URL.RawQuery = q.Encode()
 	}
+	for key, fns := range opts.ParamSignFns {
+		for _, fn := range fns {
+			q.Add(key, fn(opts.Body))
+		}
+	}
+	r.URL.RawQuery = q.Encode()
 	// headers
 	for key, values := range opts.Headers {
 		for _, value := range values {
 			r.Header.Add(key, value)
+		}
+	}
+	for key, fns := range opts.HeaderSignFns {
+		for _, fn := range fns {
+			r.Header.Add(key, fn(opts.Body))
 		}
 	}
 	// auth
@@ -141,15 +148,7 @@ func do(method, url string, opts *Options, stats *Stats) (*Response, error) {
 func request(method, url string, opts *Options) (*Response, error) {
 	stats := &Stats{}
 	// NOTE: get the body size from io.Reader. It is costy for large body.
-	buf := &bytes.Buffer{}
-	if opts.Body != nil {
-		n, err := io.Copy(buf, opts.Body)
-		if err != nil {
-			return nil, err
-		}
-		stats.BodySize = int(n)
-		opts.Body = buf
-	}
+	stats.BodySize = len(opts.Body)
 	return do(method, url, opts, stats)
 }
 
@@ -157,15 +156,13 @@ func request(method, url string, opts *Options) (*Response, error) {
 // as the request body.
 func requestData(method, url string, opts *Options) (*Response, error) {
 	stats := &Stats{}
-	var body *strings.Reader
 	if opts.Data != nil {
-		d := fmt.Sprintf("%v", opts.Data)
-		stats.BodySize = len(d)
-		body = strings.NewReader(d)
+		body := fmt.Sprintf("%v", opts.Data)
+		opts.Body = body
+		stats.BodySize = len(opts.Body)
 	}
 	// TODO: judge content type
 	// opts.Headers["Content-Type"] = "application/x-www-form-urlencoded"
-	opts.Body = body
 	return do(method, url, opts, stats)
 }
 
@@ -173,63 +170,51 @@ func requestData(method, url string, opts *Options) (*Response, error) {
 // values URL-encoded as the request body.
 func requestForm(method, urlStr string, opts *Options) (*Response, error) {
 	stats := &Stats{}
-	var body *strings.Reader
 	if opts.Form != nil {
-		d := opts.Form.Encode()
-		stats.BodySize = len(d)
-		body = strings.NewReader(d)
+		body := opts.Form.Encode()
+		opts.Body = body
+		stats.BodySize = len(opts.Body)
 	}
 	opts.Headers.Set("Content-Type", "application/x-www-form-urlencoded")
-	opts.Body = body
 	return do(method, urlStr, opts, stats)
 }
 
 // requestJSON sends an HTTP request, and encode request body as json.
 func requestJSON(method, url string, opts *Options) (*Response, error) {
 	stats := &Stats{}
-	var body *bytes.Buffer
 	if opts.JSON != nil {
 		d, err := json.Marshal(opts.JSON)
 		if err != nil {
 			return nil, err
 		}
-		stats.BodySize = len(d)
-		body = bytes.NewBuffer(d)
+		opts.Body = string(d)
+		stats.BodySize = len(opts.Body)
 	}
-
 	opts.Headers.Set("Content-Type", "application/json")
-	opts.Body = body
 	return do(method, url, opts, stats)
 }
 
 // requestFiles sends an uploading request for multiple multipart-encoded files.
 func requestFiles(method, url string, opts *Options) (*Response, error) {
 	stats := &Stats{}
-	var body bytes.Buffer
+	var body strings.Builder
 	bodyWriter := multipart.NewWriter(&body)
-	if opts.Files != nil {
-		for field, f := range opts.Files {
-			fileWriter, err := bodyWriter.CreateFormFile(field, f.Name())
-			if err != nil {
-				return nil, err
-			}
-			if _, err := io.Copy(fileWriter, f); err != nil {
-				return nil, err
-			}
-			fi, err := f.Stat()
-			if err != nil {
-				return nil, err
-			}
-			stats.BodySize += int(fi.Size())
+	for field, f := range opts.Files {
+		fileWriter, err := bodyWriter.CreateFormFile(field, f.Name())
+		if err != nil {
+			return nil, err
+		}
+		if _, err := io.Copy(fileWriter, f); err != nil {
+			return nil, err
 		}
 	}
-
-	opts.Headers.Set("Content-Type", bodyWriter.FormDataContentType())
-	opts.Body = &body
 	// write EOF before sending
 	if err := bodyWriter.Close(); err != nil {
 		return nil, err
 	}
+	opts.Body = body.String()
+	stats.BodySize = len(opts.Body)
+	opts.Headers.Set("Content-Type", bodyWriter.FormDataContentType())
 	return do(method, url, opts, stats)
 }
 
