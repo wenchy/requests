@@ -3,7 +3,6 @@ package requests
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -195,10 +194,9 @@ func ParamPairs(kv ...string) Option {
 }
 
 // Body sets io.Reader to hold request body.
-func Body(body io.Reader) Option {
+func Body(body string) Option {
 	return func(opts *Options) {
-		bytes, _ := io.ReadAll(body)
-		opts.Body = string(bytes)
+		opts.Body = body
 		opts.bodyType = bodyTypeDefault
 	}
 }

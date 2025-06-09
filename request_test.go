@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -212,7 +211,7 @@ func TestPostBody(t *testing.T) {
 			args: args{
 				url: testServer.URL,
 				options: []Option{
-					Body(strings.NewReader("test1")),
+					Body("test1"),
 				},
 			},
 			wantErr: false,
