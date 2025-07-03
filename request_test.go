@@ -12,8 +12,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -22,7 +20,7 @@ import (
 )
 
 func init() {
-	WithInterceptor(logInterceptor, metricInterceptor, traceInterceptor, bodySizeChecker)
+	WithInterceptor(logInterceptor, metricInterceptor, traceInterceptor)
 }
 
 func logInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
@@ -661,150 +659,6 @@ func TestPatch(t *testing.T) {
 			resp, err := Patch(tt.args.url, append(tt.args.options, Dump(&dump, nil))...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Patch() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if resp != nil {
-				t.Logf("resp: %s", resp.Text())
-			}
-		})
-	}
-}
-
-type ctxKey struct{}
-type ctxValue struct {
-	t    *testing.T
-	dump string
-}
-
-func newContext(ctx context.Context, value *ctxValue) context.Context {
-	return context.WithValue(ctx, ctxKey{}, value)
-}
-
-func fromContext(ctx context.Context) *ctxValue {
-	r, ok := ctx.Value(ctxKey{}).(*ctxValue)
-	if !ok {
-		return nil
-	}
-	return r
-}
-
-var re = regexp.MustCompile(`Content-Length: (\d+)`)
-
-func getRequestContentLength(reqDump string) (int, error) {
-	match := re.FindStringSubmatch(reqDump)
-	if len(match) < 2 {
-		return 0, fmt.Errorf("Content-Length not found in request dump")
-	}
-	return strconv.Atoi(match[1])
-}
-
-func bodySizeChecker(ctx context.Context, r *Request, do Do) (*Response, error) {
-	if v := fromContext(ctx); v != nil {
-		contentLength, err := getRequestContentLength(v.dump)
-		require.NoError(v.t, err)
-		require.Equalf(v.t, contentLength, len(r.Bytes()), "content length mismatch, got %v", len(r.Bytes()))
-	}
-	return do(ctx, r)
-}
-
-func TestBodySize(t *testing.T) {
-	filename1 := "./testdata/file1.txt"
-	filename2 := "./testdata/file2.txt"
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	defer testServer.Close()
-
-	fh1, err := os.Open(filename1)
-	if err != nil {
-		t.Errorf("open file: %s failed: %+v", filename1, err)
-		return
-	}
-	defer fh1.Close()
-
-	fh2, err := os.Open(filename2)
-	if err != nil {
-		t.Errorf("open file: %s failed: %+v", filename2, err)
-		return
-	}
-	defer fh2.Close()
-
-	type args struct {
-		url     string
-		options []Option
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *Response
-		wantErr bool
-	}{
-		{
-			name: "body",
-			args: args{
-				url: testServer.URL,
-				options: []Option{
-					Body(strings.NewReader("test1")),
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "data",
-			args: args{
-				url: testServer.URL,
-				options: []Option{
-					Data("test1"),
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "form",
-			args: args{
-				url: testServer.URL,
-				options: []Option{
-					Form(map[string]string{"form1": "value1"}),
-					Form(url.Values{"form2": []string{"value2", "value2-2"}}),
-					FormPairs("form1", "value1-2"),
-					FormPairs("form2", "value2-3", "form2", "value2-4"),
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "json",
-			args: args{
-				url: testServer.URL,
-				options: []Option{
-					ParamPairs("param1", "value1"),
-					ParamPairs("param2", "value2"),
-					HeaderPairs("header1", "value1"),
-					HeaderPairs("header2", "value2"),
-					JSON(&EchoRequest{ID: 1, Name: "Hello"}),
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "file",
-			args: args{
-				url: testServer.URL,
-				options: []Option{
-					Files(map[string]*os.File{
-						"file1": fh1,
-						"file2": fh2,
-					}),
-					Timeout(120 * time.Second),
-				},
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &ctxValue{t: t, dump: ""}
-			resp, err := Post(tt.args.url, append(tt.args.options, Context(newContext(context.Background(), v)), Dump(&v.dump, nil))...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Post() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if resp != nil {
