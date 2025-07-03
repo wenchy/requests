@@ -11,7 +11,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"strings"
 
 	"github.com/Wenchy/requests/internal/auth"
 	"github.com/Wenchy/requests/internal/auth/redirector"
@@ -159,10 +158,7 @@ func requestData(method, url string, opts *Options) (*Response, error) {
 	var body bytes.Buffer
 	if opts.Data != nil {
 		d := fmt.Sprintf("%v", opts.Data)
-		_, err := io.Copy(&body, strings.NewReader(d))
-		if err != nil {
-			return nil, err
-		}
+		body = *bytes.NewBufferString(d)
 	}
 	// TODO: judge content type
 	// opts.Headers["Content-Type"] = "application/x-www-form-urlencoded"
@@ -176,10 +172,7 @@ func requestForm(method, url string, opts *Options) (*Response, error) {
 	var body bytes.Buffer
 	if opts.Form != nil {
 		d := opts.Form.Encode()
-		_, err := io.Copy(&body, strings.NewReader(d))
-		if err != nil {
-			return nil, err
-		}
+		body = *bytes.NewBufferString(d)
 	}
 	opts.Headers.Set("Content-Type", "application/x-www-form-urlencoded")
 	opts.Body = &body
