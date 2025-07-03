@@ -31,7 +31,7 @@ func logInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
 }
 
 func metricInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
-	log.Printf("request, method: %s, url: %s, bodySize: %d", r.Method, r.URL, r.Stats.BodySize)
+	log.Printf("request, method: %s, url: %s, bodySize: %d", r.Method, r.URL, len(r.Bytes()))
 	resp, err := do(ctx, r)
 	if err == nil {
 		log.Printf("response: method: %s, status: %s, bodySize: %d", r.Method, resp.StatusText(), len(resp.Bytes()))
@@ -702,7 +702,7 @@ func bodySizeChecker(ctx context.Context, r *Request, do Do) (*Response, error) 
 	if v := fromContext(ctx); v != nil {
 		contentLength, err := getRequestContentLength(v.dump)
 		require.NoError(v.t, err)
-		require.Equalf(v.t, contentLength, r.Stats.BodySize, "content length mismatch, got %v", r.Stats.BodySize)
+		require.Equalf(v.t, contentLength, len(r.Bytes()), "content length mismatch, got %v", len(r.Bytes()))
 	}
 	return do(ctx, r)
 }
