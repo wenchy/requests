@@ -141,66 +141,63 @@ func do(method, url string, opts *Options, body []byte) (*Response, error) {
 // request sends an HTTP request.
 func request(method, url string, opts *Options) (*Response, error) {
 	// NOTE: get the body size from io.Reader. It is costy for large body.
-	var body bytes.Buffer
+	body := bytes.NewBuffer(nil)
 	if opts.Body != nil {
-		_, err := io.Copy(&body, opts.Body)
+		_, err := io.Copy(body, opts.Body)
 		if err != nil {
 			return nil, err
 		}
 	}
-	opts.Body = &body
+	opts.Body = body
 	return do(method, url, opts, body.Bytes())
 }
 
 // requestData sends an HTTP request to the specified URL, with raw string
 // as the request body.
 func requestData(method, url string, opts *Options) (*Response, error) {
-	var body bytes.Buffer
+	body := bytes.NewBuffer(nil)
 	if opts.Data != nil {
 		d := fmt.Sprintf("%v", opts.Data)
-		body = *bytes.NewBufferString(d)
+		_, _ = body.WriteString(d)
 	}
 	// TODO: judge content type
 	// opts.Headers["Content-Type"] = "application/x-www-form-urlencoded"
-	opts.Body = &body
+	opts.Body = body
 	return do(method, url, opts, body.Bytes())
 }
 
 // requestForm sends an HTTP request to the specified URL, with form's keys and
 // values URL-encoded as the request body.
 func requestForm(method, url string, opts *Options) (*Response, error) {
-	var body bytes.Buffer
+	body := bytes.NewBuffer(nil)
 	if opts.Form != nil {
 		d := opts.Form.Encode()
-		body = *bytes.NewBufferString(d)
+		_, _ = body.WriteString(d)
 	}
 	opts.Headers.Set("Content-Type", "application/x-www-form-urlencoded")
-	opts.Body = &body
+	opts.Body = body
 	return do(method, url, opts, body.Bytes())
 }
 
 // requestJSON sends an HTTP request, and encode request body as json.
 func requestJSON(method, url string, opts *Options) (*Response, error) {
-	var body bytes.Buffer
+	body := bytes.NewBuffer(nil)
 	if opts.JSON != nil {
 		d, err := json.Marshal(opts.JSON)
 		if err != nil {
 			return nil, err
 		}
-		_, err = body.Write(d)
-		if err != nil {
-			return nil, err
-		}
+		_, _ = body.Write(d)
 	}
 	opts.Headers.Set("Content-Type", "application/json")
-	opts.Body = &body
+	opts.Body = body
 	return do(method, url, opts, body.Bytes())
 }
 
 // requestFiles sends an uploading request for multiple multipart-encoded files.
 func requestFiles(method, url string, opts *Options) (*Response, error) {
-	var body bytes.Buffer
-	bodyWriter := multipart.NewWriter(&body)
+	body := bytes.NewBuffer(nil)
+	bodyWriter := multipart.NewWriter(body)
 	if opts.Files != nil {
 		for field, f := range opts.Files {
 			fileWriter, err := bodyWriter.CreateFormFile(field, f.Name())
@@ -217,7 +214,7 @@ func requestFiles(method, url string, opts *Options) (*Response, error) {
 		return nil, err
 	}
 	opts.Headers.Set("Content-Type", bodyWriter.FormDataContentType())
-	opts.Body = &body
+	opts.Body = body
 	return do(method, url, opts, body.Bytes())
 }
 
