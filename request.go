@@ -158,7 +158,10 @@ func requestData(method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	if opts.Data != nil {
 		d := fmt.Sprintf("%v", opts.Data)
-		_, _ = body.WriteString(d)
+		_, err := body.WriteString(d)
+		if err != nil {
+			return nil, err
+		}
 	}
 	// TODO: judge content type
 	// opts.Headers["Content-Type"] = "application/x-www-form-urlencoded"
@@ -172,7 +175,10 @@ func requestForm(method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	if opts.Form != nil {
 		d := opts.Form.Encode()
-		_, _ = body.WriteString(d)
+		_, err := body.WriteString(d)
+		if err != nil {
+			return nil, err
+		}
 	}
 	opts.Headers.Set("Content-Type", "application/x-www-form-urlencoded")
 	opts.Body = body
@@ -187,7 +193,10 @@ func requestJSON(method, url string, opts *Options) (*Response, error) {
 		if err != nil {
 			return nil, err
 		}
-		_, _ = body.Write(d)
+		_, err = body.Write(d)
+		if err != nil {
+			return nil, err
+		}
 	}
 	opts.Headers.Set("Content-Type", "application/json")
 	opts.Body = body
