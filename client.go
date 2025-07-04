@@ -9,11 +9,11 @@ import (
 // Do is called by Interceptor to complete HTTP requests.
 type Do func(ctx context.Context, r *Request) (*Response, error)
 
-// Interceptor provides a hook to intercept the execution of an HTTP request
+// InterceptorFunc provides a hook to intercept the execution of an HTTP request
 // invocation. When an interceptor(s) is set, requests delegates all HTTP
 // client invocations to the interceptor, and it is the responsibility of the
 // interceptor to call do to complete the processing of the HTTP request.
-type Interceptor func(ctx context.Context, r *Request, do Do) (*Response, error)
+type InterceptorFunc func(ctx context.Context, r *Request, do Do) (*Response, error)
 
 type Client struct {
 	*http.Client
@@ -31,7 +31,7 @@ func (c *Client) Do(ctx context.Context, r *Request) (*Response, error) {
 	if ctx != nil {
 		r = r.WithContext(ctx)
 	}
-	var interceptors []Interceptor
+	var interceptors []InterceptorFunc
 	if r.opts.Interceptor != nil {
 		interceptors = append(interceptors, r.opts.Interceptor)
 	}

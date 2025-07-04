@@ -773,7 +773,7 @@ func TestInterceptors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := Post(tt.args.url, append(tt.args.options, Interceptors(func(ctx context.Context, req *Request, do Do) (*Response, error) {
+			resp, err := Post(tt.args.url, append(tt.args.options, Interceptor(func(ctx context.Context, req *Request, do Do) (*Response, error) {
 				req.Header.Set("X-Body-Size", strconv.Itoa(len(req.Bytes())))
 				req.Header.Set("X-Body-Md5", hex.EncodeToString(md5.New().Sum(req.Bytes())))
 				return do(ctx, req)

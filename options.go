@@ -42,8 +42,8 @@ type Options struct {
 	DumpRequestOut *string
 	DumpResponse   *string
 
-	// custom interceptors
-	Interceptor Interceptor
+	// custom interceptor
+	Interceptor InterceptorFunc
 }
 
 // Option is the functional option type.
@@ -351,14 +351,11 @@ func Dump(req, resp *string) Option {
 	}
 }
 
-// Interceptor prepends interceptors to environment interceptors for
-// current request only.
-func Interceptors(interceptors ...Interceptor) Option {
+// Interceptor specifies a custom interceptor, which is prepended to environment
+// interceptors for current request only.
+func Interceptor(interceptor InterceptorFunc) Option {
 	return func(opts *Options) {
-		if opts.Interceptor != nil {
-			interceptors = append([]Interceptor{opts.Interceptor}, interceptors...)
-		}
-		opts.Interceptor = chainInterceptors(interceptors...)
+		opts.Interceptor = interceptor
 	}
 }
 
