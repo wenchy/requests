@@ -2,6 +2,8 @@ package requests
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -659,6 +662,124 @@ func TestPatch(t *testing.T) {
 			resp, err := Patch(tt.args.url, append(tt.args.options, Dump(&dump, nil))...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Patch() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if resp != nil {
+				t.Logf("resp: %s", resp.Text())
+			}
+		})
+	}
+}
+
+func TestInterceptors(t *testing.T) {
+	filename1 := "./testdata/file1.txt"
+	filename2 := "./testdata/file2.txt"
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		defer r.Body.Close()
+		if err != nil {
+			t.Errorf("ReadAll failed: %v", err)
+		}
+		require.Equalf(t, strconv.Itoa(len(body)), r.Header.Get("X-Body-Size"), "content length not same")
+		require.Equalf(t, hex.EncodeToString(md5.New().Sum(body)), r.Header.Get("X-Body-Md5"), "content md5 not same")
+	}))
+	defer testServer.Close()
+
+	fh1, err := os.Open(filename1)
+	if err != nil {
+		t.Errorf("open file: %s failed: %+v", filename1, err)
+		return
+	}
+	defer fh1.Close()
+
+	fh2, err := os.Open(filename2)
+	if err != nil {
+		t.Errorf("open file: %s failed: %+v", filename2, err)
+		return
+	}
+	defer fh2.Close()
+
+	type args struct {
+		url     string
+		options []Option
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *Response
+		wantErr bool
+	}{
+		{
+			name: "body",
+			args: args{
+				url: testServer.URL,
+				options: []Option{
+					Body(strings.NewReader("test1")),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "data",
+			args: args{
+				url: testServer.URL,
+				options: []Option{
+					Data("test1"),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "form",
+			args: args{
+				url: testServer.URL,
+				options: []Option{
+					Form(map[string]string{"form1": "value1"}),
+					Form(url.Values{"form2": []string{"value2", "value2-2"}}),
+					FormPairs("form1", "value1-2"),
+					FormPairs("form2", "value2-3", "form2", "value2-4"),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "json",
+			args: args{
+				url: testServer.URL,
+				options: []Option{
+					ParamPairs("param1", "value1"),
+					ParamPairs("param2", "value2"),
+					HeaderPairs("header1", "value1"),
+					HeaderPairs("header2", "value2"),
+					JSON(&EchoRequest{ID: 1, Name: "Hello"}),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "file",
+			args: args{
+				url: testServer.URL,
+				options: []Option{
+					Files(map[string]*os.File{
+						"file1": fh1,
+						"file2": fh2,
+					}),
+					Timeout(120 * time.Second),
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := Post(tt.args.url, append(tt.args.options, Interceptors(func(ctx context.Context, req *Request, do Do) (*Response, error) {
+				req.Header.Set("X-Body-Size", strconv.Itoa(len(req.Bytes())))
+				req.Header.Set("X-Body-Md5", hex.EncodeToString(md5.New().Sum(req.Bytes())))
+				return do(ctx, req)
+			}))...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Post() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if resp != nil {
