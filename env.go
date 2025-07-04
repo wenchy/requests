@@ -41,11 +41,12 @@ func WithInterceptor(interceptors ...Interceptor) {
 
 // chainInterceptors chains multiple interceptors into one.
 func chainInterceptors(interceptors ...Interceptor) Interceptor {
-	if len(interceptors) == 0 {
+	switch len(interceptors) {
+	case 0:
 		return nil
-	} else if len(interceptors) == 1 {
+	case 1:
 		return interceptors[0]
-	} else {
+	default:
 		return func(ctx context.Context, r *Request, do Do) (*Response, error) {
 			return interceptors[0](ctx, r, getChainDo(interceptors, 0, do))
 		}
