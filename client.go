@@ -38,7 +38,7 @@ func (c *Client) Do(ctx context.Context, r *Request) (*Response, error) {
 	if env.interceptor != nil {
 		interceptors = append(interceptors, env.interceptor)
 	}
-	interceptor := chainInterceptors(interceptors...)
+	interceptor := ChainInterceptors(interceptors...)
 	if interceptor != nil {
 		return interceptor(ctx, r, c.do)
 	}

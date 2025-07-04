@@ -36,11 +36,11 @@ func WithInterceptor(interceptors ...InterceptorFunc) {
 	if env.interceptor != nil {
 		interceptors = append([]InterceptorFunc{env.interceptor}, interceptors...)
 	}
-	env.interceptor = chainInterceptors(interceptors...)
+	env.interceptor = ChainInterceptors(interceptors...)
 }
 
-// chainInterceptors chains multiple interceptors into one.
-func chainInterceptors(interceptors ...InterceptorFunc) InterceptorFunc {
+// ChainInterceptors chains multiple interceptors into one.
+func ChainInterceptors(interceptors ...InterceptorFunc) InterceptorFunc {
 	switch len(interceptors) {
 	case 0:
 		return nil
