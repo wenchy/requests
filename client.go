@@ -31,8 +31,19 @@ func (c *Client) Do(ctx context.Context, r *Request) (*Response, error) {
 	if ctx != nil {
 		r = r.WithContext(ctx)
 	}
+	var interceptors []Interceptor
+	if r.opts.PrependInterceptor != nil {
+		interceptors = append(interceptors, r.opts.PrependInterceptor)
+	}
 	if env.interceptor != nil {
-		return env.interceptor(ctx, r, c.do)
+		interceptors = append(interceptors, env.interceptor)
+	}
+	if r.opts.AppendInterceptor != nil {
+		interceptors = append(interceptors, r.opts.AppendInterceptor)
+	}
+	interceptor := chainInterceptors(interceptors...)
+	if interceptor != nil {
+		return interceptor(ctx, r, c.do)
 	}
 	return c.do(ctx, r)
 }

@@ -36,17 +36,20 @@ func WithInterceptor(interceptors ...Interceptor) {
 	if env.interceptor != nil {
 		interceptors = append([]Interceptor{env.interceptor}, interceptors...)
 	}
-	var chainedInt Interceptor
+	env.interceptor = chainInterceptors(interceptors...)
+}
+
+// chainInterceptors chains multiple interceptors into one.
+func chainInterceptors(interceptors ...Interceptor) Interceptor {
 	if len(interceptors) == 0 {
-		chainedInt = nil
+		return nil
 	} else if len(interceptors) == 1 {
-		chainedInt = interceptors[0]
+		return interceptors[0]
 	} else {
-		chainedInt = func(ctx context.Context, r *Request, do Do) (*Response, error) {
+		return func(ctx context.Context, r *Request, do Do) (*Response, error) {
 			return interceptors[0](ctx, r, getChainDo(interceptors, 0, do))
 		}
 	}
-	env.interceptor = chainedInt
 }
 
 // getChainDo recursively generates the chained do.
