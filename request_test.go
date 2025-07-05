@@ -2,6 +2,8 @@ package requests
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,7 +14,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -22,7 +23,7 @@ import (
 )
 
 func init() {
-	WithInterceptor(logInterceptor, metricInterceptor, traceInterceptor, bodySizeChecker)
+	WithInterceptor(logInterceptor, metricInterceptor, traceInterceptor)
 }
 
 func logInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
@@ -31,7 +32,7 @@ func logInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
 }
 
 func metricInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
-	log.Printf("request, method: %s, url: %s, bodySize: %d", r.Method, r.URL, r.Stats.BodySize)
+	log.Printf("request, method: %s, url: %s, bodySize: %d", r.Method, r.URL, len(r.Bytes()))
 	resp, err := do(ctx, r)
 	if err == nil {
 		log.Printf("response: method: %s, status: %s, bodySize: %d", r.Method, resp.StatusText(), len(resp.Bytes()))
@@ -670,47 +671,18 @@ func TestPatch(t *testing.T) {
 	}
 }
 
-type ctxKey struct{}
-type ctxValue struct {
-	t    *testing.T
-	dump string
-}
-
-func newContext(ctx context.Context, value *ctxValue) context.Context {
-	return context.WithValue(ctx, ctxKey{}, value)
-}
-
-func fromContext(ctx context.Context) *ctxValue {
-	r, ok := ctx.Value(ctxKey{}).(*ctxValue)
-	if !ok {
-		return nil
-	}
-	return r
-}
-
-var re = regexp.MustCompile(`Content-Length: (\d+)`)
-
-func getRequestContentLength(reqDump string) (int, error) {
-	match := re.FindStringSubmatch(reqDump)
-	if len(match) < 2 {
-		return 0, fmt.Errorf("Content-Length not found in request dump")
-	}
-	return strconv.Atoi(match[1])
-}
-
-func bodySizeChecker(ctx context.Context, r *Request, do Do) (*Response, error) {
-	if v := fromContext(ctx); v != nil {
-		contentLength, err := getRequestContentLength(v.dump)
-		require.NoError(v.t, err)
-		require.Equalf(v.t, contentLength, r.Stats.BodySize, "content length mismatch, got %v", r.Stats.BodySize)
-	}
-	return do(ctx, r)
-}
-
-func TestBodySize(t *testing.T) {
+func TestInterceptors(t *testing.T) {
 	filename1 := "./testdata/file1.txt"
 	filename2 := "./testdata/file2.txt"
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		defer r.Body.Close()
+		if err != nil {
+			t.Errorf("ReadAll failed: %v", err)
+		}
+		require.Equalf(t, strconv.Itoa(len(body)), r.Header.Get("X-Body-Size"), "content length not same")
+		require.Equalf(t, hex.EncodeToString(md5.New().Sum(body)), r.Header.Get("X-Body-Md5"), "content md5 not same")
+	}))
 	defer testServer.Close()
 
 	fh1, err := os.Open(filename1)
@@ -801,8 +773,11 @@ func TestBodySize(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := &ctxValue{t: t, dump: ""}
-			resp, err := Post(tt.args.url, append(tt.args.options, Context(newContext(context.Background(), v)), Dump(&v.dump, nil))...)
+			resp, err := Post(tt.args.url, append(tt.args.options, Interceptor(func(ctx context.Context, req *Request, do Do) (*Response, error) {
+				req.Header.Set("X-Body-Size", strconv.Itoa(len(req.Bytes())))
+				req.Header.Set("X-Body-Md5", hex.EncodeToString(md5.New().Sum(req.Bytes())))
+				return do(ctx, req)
+			}))...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Post() error = %v, wantErr %v", err, tt.wantErr)
 				return

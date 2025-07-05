@@ -41,6 +41,9 @@ type Options struct {
 	// dump
 	DumpRequestOut *string
 	DumpResponse   *string
+
+	// custom interceptor
+	Interceptor InterceptorFunc
 }
 
 // Option is the functional option type.
@@ -345,6 +348,14 @@ func Dump(req, resp *string) Option {
 	return func(opts *Options) {
 		opts.DumpRequestOut = req
 		opts.DumpResponse = resp
+	}
+}
+
+// Interceptor specifies a custom interceptor, which is prepended to environment
+// interceptors for current request only.
+func Interceptor(interceptor InterceptorFunc) Option {
+	return func(opts *Options) {
+		opts.Interceptor = interceptor
 	}
 }
 
