@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -19,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 )
 
 func init() {
@@ -126,7 +125,7 @@ func TestGet(t *testing.T) {
 				return
 			}
 			if err == nil {
-				fmt.Printf("response body: %+v\n", got.Text())
+				t.Logf("response body: %+v\n", got.Text())
 			}
 		})
 	}
@@ -180,7 +179,7 @@ func TestGetWithContext(t *testing.T) {
 				return
 			}
 			if err == nil {
-				fmt.Printf("response body: %+v\n", got.Text())
+				t.Logf("response body: %+v\n", got.Text())
 			}
 		})
 	}
@@ -189,12 +188,14 @@ func TestGetWithContext(t *testing.T) {
 func TestPostBody(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
-		defer r.Body.Close()
-		if err != nil {
-			t.Errorf("ReadAll failed: %v", err)
-		}
+		assert.NoError(t, err)
+		defer func() {
+			assert.NoError(t, r.Body.Close())
+		}()
 		w.WriteHeader(http.StatusOK)
-		w.Write(body)
+		n, err := w.Write(body)
+		assert.NoError(t, err)
+		assert.Equal(t, n, len(body))
 	}))
 	defer testServer.Close()
 
@@ -241,12 +242,14 @@ func TestPostBody(t *testing.T) {
 func TestPostData(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
-		defer r.Body.Close()
-		if err != nil {
-			t.Errorf("ReadAll failed: %v", err)
-		}
+		assert.NoError(t, err)
+		defer func() {
+			assert.NoError(t, r.Body.Close())
+		}()
 		w.WriteHeader(http.StatusOK)
-		w.Write(body)
+		n, err := w.Write(body)
+		assert.NoError(t, err)
+		assert.Equal(t, n, len(body))
 	}))
 	defer testServer.Close()
 
@@ -293,7 +296,7 @@ func TestPostData(t *testing.T) {
 func TestPostForm(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseForm()
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		req := testRequest{
 			Headers: r.Header,
 			Params:  r.URL.Query(),
@@ -303,9 +306,10 @@ func TestPostForm(t *testing.T) {
 		t.Logf("headers: %v", r.Header)
 		w.WriteHeader(http.StatusOK)
 		data, err := json.Marshal(req)
-		require.NoError(t, err)
-		_, err = w.Write(data)
-		require.NoError(t, err)
+		assert.NoError(t, err)
+		n, err := w.Write(data)
+		assert.NoError(t, err)
+		assert.Equal(t, n, len(data))
 	}))
 	defer testServer.Close()
 	type args struct {
@@ -386,11 +390,11 @@ func TestPostForm(t *testing.T) {
 			if err == nil && tt.want != nil {
 				rsp := &testRequest{}
 				err := got.JSON(rsp)
-				require.NoError(t, err)
-				require.Subsetf(t, rsp.Headers, tt.want.Headers, "some headers missing in HTTP server-side")
-				require.Subsetf(t, rsp.Params, tt.want.Params, "some params missing in HTTP server-side")
-				require.Subsetf(t, rsp.Form, tt.want.Form, "some form data missing in HTTP server-side")
-				fmt.Printf("got testRequest: %+v\n", rsp)
+				assert.NoError(t, err)
+				assert.Subsetf(t, rsp.Headers, tt.want.Headers, "some headers missing in HTTP server-side")
+				assert.Subsetf(t, rsp.Params, tt.want.Params, "some params missing in HTTP server-side")
+				assert.Subsetf(t, rsp.Form, tt.want.Form, "some form data missing in HTTP server-side")
+				t.Logf("got testRequest: %+v\n", rsp)
 			}
 		})
 	}
@@ -415,26 +419,24 @@ func TestPostJSON(t *testing.T) {
 		t.Logf("headers: %v", r.Header)
 
 		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Errorf("ReadAll failed: %v", err)
-		}
-		defer r.Body.Close()
+		assert.NoError(t, err)
+		defer func() {
+			assert.NoError(t, r.Body.Close())
+		}()
 		var req EchoRequest
-		if err := json.Unmarshal(body, &req); err != nil {
-			t.Errorf("json unmarshal failed:  %v", err)
-		}
+		err = json.Unmarshal(body, &req)
+		assert.NoError(t, err)
 
 		jsonResp := &EchoResponse{
 			ID:   req.ID,
 			Name: "echo " + req.Name,
 		}
-		resBytes, err := json.Marshal(jsonResp)
-		if err != nil {
-			t.Errorf("json marshal failed: %v", err)
-			return
-		}
+		respBytes, err := json.Marshal(jsonResp)
+		assert.NoError(t, err)
 		w.WriteHeader(http.StatusOK)
-		w.Write(resBytes)
+		n, err := w.Write(respBytes)
+		assert.NoError(t, err)
+		assert.Equal(t, n, len(respBytes))
 	}))
 	defer testServer.Close()
 
@@ -505,15 +507,17 @@ func TestPostFiles(t *testing.T) {
 			// Go 1.17: net/http: multipart form should not include directory path in filename
 			// Refer: https://github.com/golang/go/issues/45789
 			file, header, err := r.FormFile(formKey)
-			require.NoErrorf(t, err, "get form file: %s failed", formKey)
-			defer file.Close()
+			assert.NoErrorf(t, err, "get form file: %s failed", formKey)
+			defer func() {
+				assert.NoError(t, file.Close())
+			}()
 			got, err := io.ReadAll(file)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			path := filepath.Join("./testdata/", header.Filename)
 			src, err := os.ReadFile(path)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 
-			require.Equalf(t, string(src), string(got), "content not same: %s", formKey)
+			assert.Equalf(t, string(src), string(got), "content not same: %s", formKey)
 			return nil
 		}
 
@@ -525,28 +529,32 @@ func TestPostFiles(t *testing.T) {
 
 		if err := handleUpload("file2"); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("upload form: file2 failed"))
+			failedMsg := "upload form: file2 failed"
+			n, err := w.Write([]byte(failedMsg))
+			assert.NoError(t, err)
+			assert.Equal(t, n, len(failedMsg))
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("upload file success"))
+		successMsg := "upload file success"
+		n, err := w.Write([]byte(successMsg))
+		assert.NoError(t, err)
+		assert.Equal(t, n, len(successMsg))
 	}))
 	defer testServer.Close()
 
 	fh1, err := os.Open(filename1)
-	if err != nil {
-		t.Errorf("open file: %s failed: %+v", filename1, err)
-		return
-	}
-	defer fh1.Close()
+	assert.NoError(t, err)
+	defer func() {
+		assert.NoError(t, fh1.Close())
+	}()
 
 	fh2, err := os.Open(filename2)
-	if err != nil {
-		t.Errorf("open file: %s failed: %+v", filename2, err)
-		return
-	}
-	defer fh2.Close()
+	assert.NoError(t, err)
+	defer func() {
+		assert.NoError(t, fh2.Close())
+	}()
 
 	type args struct {
 		url     string
@@ -604,17 +612,13 @@ func TestPostFiles(t *testing.T) {
 
 func TestPatch(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch {
-			t.Errorf("method is not PATCH: %s", r.Method)
-		}
-		b, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Errorf("read body failed: %+v", err)
-		}
+		assert.Equalf(t, http.MethodPatch, r.Method, "method is not PATCH: %s", r.Method)
+		body, err := io.ReadAll(r.Body)
+		assert.NoError(t, err)
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write(b); err != nil {
-			t.Errorf("write response failed: %+v", err)
-		}
+		n, err := w.Write(body)
+		assert.NoError(t, err)
+		assert.Equal(t, n, len(body))
 	}))
 	defer testServer.Close()
 	type args struct {
@@ -676,28 +680,27 @@ func TestInterceptors(t *testing.T) {
 	filename2 := "./testdata/file2.txt"
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
-		defer r.Body.Close()
-		if err != nil {
-			t.Errorf("ReadAll failed: %v", err)
-		}
-		require.Equalf(t, strconv.Itoa(len(body)), r.Header.Get("X-Body-Size"), "content length not same")
-		require.Equalf(t, hex.EncodeToString(md5.New().Sum(body)), r.Header.Get("X-Body-Md5"), "content md5 not same")
+		assert.NoError(t, err)
+		defer func() {
+			assert.NoError(t, r.Body.Close())
+		}()
+
+		assert.Equalf(t, strconv.Itoa(len(body)), r.Header.Get("X-Body-Size"), "content length not same")
+		assert.Equalf(t, hex.EncodeToString(md5.New().Sum(body)), r.Header.Get("X-Body-Md5"), "content md5 not same")
 	}))
 	defer testServer.Close()
 
 	fh1, err := os.Open(filename1)
-	if err != nil {
-		t.Errorf("open file: %s failed: %+v", filename1, err)
-		return
-	}
-	defer fh1.Close()
+	assert.NoError(t, err)
+	defer func() {
+		assert.NoError(t, fh1.Close())
+	}()
 
 	fh2, err := os.Open(filename2)
-	if err != nil {
-		t.Errorf("open file: %s failed: %+v", filename2, err)
-		return
-	}
-	defer fh2.Close()
+	assert.NoError(t, err)
+	defer func() {
+		assert.NoError(t, fh2.Close())
+	}()
 
 	type args struct {
 		url     string
@@ -784,6 +787,87 @@ func TestInterceptors(t *testing.T) {
 			}
 			if resp != nil {
 				t.Logf("resp: %s", resp.Text())
+			}
+		})
+	}
+}
+
+type CustomTransport struct {
+	*http.Transport
+}
+
+func (ct CustomTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req.Header.Set("X-Transport", "CustomTransport")
+	return ct.Transport.RoundTrip(req)
+}
+
+func TestSetHostTransport(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("query strings: %v", r.URL.Query())
+		t.Logf("headers: %v", r.Header)
+		w.WriteHeader(http.StatusOK)
+		body := r.Header.Get("X-Transport")
+		n, err := w.Write([]byte(body))
+		assert.NoError(t, err)
+		assert.Equal(t, n, len(body))
+	}))
+	defer testServer.Close()
+	testServer1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer testServer1.Close()
+	// Parse the URL string
+	serverURL, err := url.Parse(testServer.URL)
+	assert.NoError(t, err)
+
+	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	assert.Equal(t, true, ok)
+
+	trans := defaultTransport.Clone()
+	trans.DisableKeepAlives = true
+	trans.MaxIdleConns = 1
+	trans.IdleConnTimeout = 10 * time.Second
+	customTransport := CustomTransport{
+		Transport: trans,
+	}
+
+	SetHostTransport(map[string]http.RoundTripper{
+		serverURL.Host: customTransport,
+	})
+	type args struct {
+		url     string
+		options []Option
+	}
+	tests := []struct {
+		name     string
+		args     args
+		wantErr  bool
+		wantBody string
+	}{
+		{
+			name: "hit host transport",
+			args: args{
+				url: testServer.URL,
+			},
+			wantBody: "CustomTransport",
+		},
+		{
+			name: "miss host transport",
+			args: args{
+				url: testServer1.URL,
+			},
+			wantBody: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Get(tt.args.url, tt.args.options...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil {
+				assert.Equal(t, tt.wantBody, string(got.Bytes()))
 			}
 		})
 	}

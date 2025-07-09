@@ -42,14 +42,13 @@ func newResponse(resp *http.Response, opts *Options) (*Response, error) {
 }
 
 // readAndCloseBody drains all the HTTP response body stream and then closes it.
-func (r *Response) readAndCloseBody() error {
-	defer r.Response.Body.Close()
-	var err error
+func (r *Response) readAndCloseBody() (err error) {
+	defer func() {
+		err1 := r.Response.Body.Close()
+		err = errors.Join(err, err1)
+	}()
 	r.body, err = io.ReadAll(r.Response.Body)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // StatusCode returns status code of HTTP response.

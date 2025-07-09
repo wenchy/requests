@@ -113,18 +113,30 @@ func do(method, url string, opts *Options, body []byte) (*Response, error) {
 	//
 	// - https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
 	// - https://stackoverflow.com/questions/59656164/what-is-the-difference-between-net-dialerkeepalive-and-http-transportidletimeo
-	transport := env.transport
-	if opts.DisableKeepAlives {
-		// If option DisableKeepAlives set as true, then clone a new transport
-		// just for this one-off HTTP request.
-		transport = env.transport.Clone()
-		transport.DisableKeepAlives = true
+	var roundTripper http.RoundTripper
+	if opts.RoundTripper != nil {
+		roundTripper = opts.RoundTripper
+	} else {
+		if rt := env.hostRoundTrippers[req.Host]; rt != nil {
+			// Use the host-specific RoundTripper if set.
+			roundTripper = rt
+		} else if opts.DisableKeepAlives {
+			// If option DisableKeepAlives set as true, then clone a new transport
+			// just for this one-off HTTP request.
+			transport := env.transport.Clone()
+			transport.DisableKeepAlives = true
+			roundTripper = transport
+		} else {
+			// If option DisableKeepAlives not set as true, then use the default
+			// transport.
+			roundTripper = env.transport
+		}
 	}
 	client := &Client{
 		Client: &http.Client{
 			CheckRedirect: redirector.RedirectPolicyFunc,
 			Timeout:       opts.Timeout,
-			Transport:     transport,
+			Transport:     roundTripper,
 		},
 	}
 	var ctx context.Context
