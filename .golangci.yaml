@@ -1,0 +1,35 @@
+---
+version: "2"
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    # - gosec
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+  exclusions:
+    # presets:
+    #   - comments
+    #   - common-false-positives
+    #   - legacy
+    #   - std-error-handling
+    rules:
+      - linters:
+          - staticcheck
+        text: "QF1008:" # could remove embedded field "XXX" from selector (staticcheck)
+      - linters:
+          - staticcheck
+        text: "QF1007:" # could merge conditional assignment into variable declaration (staticcheck)
+      - linters:
+          - staticcheck
+        text: "QF1001:" # could apply De Morgan's law (staticcheck)
+      - linters:
+          - staticcheck
+        text: "QF1006:" # could lift into loop condition (staticcheck)
+formatters:
+  enable:
+    - gofmt
+    - gofumpt

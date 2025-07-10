@@ -42,12 +42,31 @@ type Options struct {
 	DumpRequestOut *string
 	DumpResponse   *string
 
-	// custom interceptor
+	// interceptor
 	Interceptor InterceptorFunc
+	// round tripper
+	RoundTripper http.RoundTripper
 }
 
 // Option is the functional option type.
 type Option func(*Options)
+
+// newDefaultOptions creates a new default HTTP options.
+func newDefaultOptions() *Options {
+	return &Options{
+		Headers:  http.Header{},
+		bodyType: bodyTypeDefault,
+		Timeout:  env.timeout,
+	}
+}
+
+func parseOptions(options ...Option) *Options {
+	opts := newDefaultOptions()
+	for _, setter := range options {
+		setter(opts)
+	}
+	return opts
+}
 
 // Context sets the HTTP request context.
 //
@@ -351,27 +370,19 @@ func Dump(req, resp *string) Option {
 	}
 }
 
-// Interceptor specifies a custom interceptor, which is prepended to environment
-// interceptors for current request only.
+// Interceptor prepends an interceptor to environment interceptors for current
+// request only.
 func Interceptor(interceptor InterceptorFunc) Option {
 	return func(opts *Options) {
 		opts.Interceptor = interceptor
 	}
 }
 
-// newDefaultOptions creates a new default HTTP options.
-func newDefaultOptions() *Options {
-	return &Options{
-		Headers:  http.Header{},
-		bodyType: bodyTypeDefault,
-		Timeout:  env.timeout,
+// Transport specifies a custom RoundTripper for current request only.
+//
+// NOTE: If specified, then option DisableKeepAlives() will not work.
+func Transport(rt http.RoundTripper) Option {
+	return func(opts *Options) {
+		opts.RoundTripper = rt
 	}
-}
-
-func parseOptions(options ...Option) *Options {
-	opts := newDefaultOptions()
-	for _, setter := range options {
-		setter(opts)
-	}
-	return opts
 }

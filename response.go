@@ -42,14 +42,13 @@ func newResponse(resp *http.Response, opts *Options) (*Response, error) {
 }
 
 // readAndCloseBody drains all the HTTP response body stream and then closes it.
-func (r *Response) readAndCloseBody() error {
-	defer r.Response.Body.Close()
-	var err error
+func (r *Response) readAndCloseBody() (err error) {
+	defer func() {
+		err1 := r.Response.Body.Close()
+		err = errors.Join(err, err1)
+	}()
 	r.body, err = io.ReadAll(r.Response.Body)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // StatusCode returns status code of HTTP response.
@@ -66,14 +65,14 @@ func (r *Response) StatusCode() int {
 // StatusText returns a text for the HTTP status code.
 //
 // NOTE:
-//   - It returns "Response is nil" if response is nil.
+//   - It returns "<nil>" if response is nil.
 //   - It returns the empty string if the code is unknown.
 //
 // e.g. "OK"
 func (r *Response) StatusText() string {
 	if r == nil || r.Response == nil {
 		// return special status code -1 which is not registered with IANA.
-		return "Response is nil"
+		return "<nil>"
 	}
 	return r.Response.Status
 }
@@ -111,9 +110,9 @@ func (r *Response) Headers() http.Header {
 
 // Cookies parses and returns the cookies set in the Set-Cookie headers.
 func (r *Response) Cookies() map[string]*http.Cookie {
-	m := make(map[string]*http.Cookie)
+	cookies := make(map[string]*http.Cookie)
 	for _, c := range r.Response.Cookies() {
-		m[c.Name] = c
+		cookies[c.Name] = c
 	}
-	return m
+	return cookies
 }
