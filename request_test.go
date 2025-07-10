@@ -803,8 +803,6 @@ func (ct CustomTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func TestSetHostTransport(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Logf("query strings: %v", r.URL.Query())
-		t.Logf("headers: %v", r.Header)
 		w.WriteHeader(http.StatusOK)
 		body := r.Header.Get("X-Transport")
 		n, err := w.Write([]byte(body))
@@ -816,6 +814,14 @@ func TestSetHostTransport(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer testServer1.Close()
+	testServer2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		body := r.Header.Get("X-Transport") + "(testServer2)"
+		n, err := w.Write([]byte(body))
+		assert.NoError(t, err)
+		assert.Equal(t, n, len(body))
+	}))
+	defer testServer.Close()
 	// Parse the URL string
 	serverURL, err := url.Parse(testServer.URL)
 	assert.NoError(t, err)
@@ -845,18 +851,28 @@ func TestSetHostTransport(t *testing.T) {
 		wantBody string
 	}{
 		{
-			name: "hit host transport",
+			name: "hit host transport at env level",
 			args: args{
 				url: testServer.URL,
 			},
 			wantBody: "CustomTransport",
 		},
 		{
-			name: "miss host transport",
+			name: "miss host transport at env level",
 			args: args{
 				url: testServer1.URL,
 			},
 			wantBody: "",
+		},
+		{
+			name: "host transport for current request",
+			args: args{
+				url: testServer2.URL,
+				options: []Option{
+					Transport(customTransport),
+				},
+			},
+			wantBody: "CustomTransport(testServer2)",
 		},
 	}
 	for _, tt := range tests {
