@@ -51,6 +51,23 @@ type Options struct {
 // Option is the functional option type.
 type Option func(*Options)
 
+// newDefaultOptions creates a new default HTTP options.
+func newDefaultOptions() *Options {
+	return &Options{
+		Headers:  http.Header{},
+		bodyType: bodyTypeDefault,
+		Timeout:  env.timeout,
+	}
+}
+
+func parseOptions(options ...Option) *Options {
+	opts := newDefaultOptions()
+	for _, setter := range options {
+		setter(opts)
+	}
+	return opts
+}
+
 // Context sets the HTTP request context.
 //
 // For outgoing client request, the context controls the entire lifetime of
@@ -368,21 +385,4 @@ func Transport(rt http.RoundTripper) Option {
 	return func(opts *Options) {
 		opts.RoundTripper = rt
 	}
-}
-
-// newDefaultOptions creates a new default HTTP options.
-func newDefaultOptions() *Options {
-	return &Options{
-		Headers:  http.Header{},
-		bodyType: bodyTypeDefault,
-		Timeout:  env.timeout,
-	}
-}
-
-func parseOptions(options ...Option) *Options {
-	opts := newDefaultOptions()
-	for _, setter := range options {
-		setter(opts)
-	}
-	return opts
 }
