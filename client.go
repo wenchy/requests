@@ -4,23 +4,57 @@ import (
 	"context"
 	"net/http"
 	"net/http/httputil"
+	"time"
 )
 
-// Do is called by Interceptor to complete HTTP requests.
-type Do func(ctx context.Context, r *Request) (*Response, error)
-
-// InterceptorFunc provides a hook to intercept the execution of an HTTP request
-// invocation. When an interceptor(s) is set, requests delegates all HTTP
-// client invocations to the interceptor, and it is the responsibility of the
-// interceptor to call do to complete the processing of the HTTP request.
-type InterceptorFunc func(ctx context.Context, r *Request, do Do) (*Response, error)
+// ClientOption is the functional option type.
+type ClientOption func(*Client)
 
 type Client struct {
 	*http.Client
+	interceptor InterceptorFunc
 }
 
-// Do sends the HTTP request and returns after response is received.
-func (c *Client) Do(ctx context.Context, r *Request) (*Response, error) {
+func NewClient(options ...ClientOption) *Client {
+	client := newDefaultClient()
+	for _, setter := range options {
+		setter(client)
+	}
+	return client
+}
+
+func WithTimeout(timeout time.Duration) ClientOption {
+	return func(c *Client) {
+		c.Timeout = timeout
+	}
+}
+
+func WithTransport(transport http.RoundTripper) ClientOption {
+	return func(c *Client) {
+		c.Transport = transport
+	}
+}
+
+func WithInterceptor(interceptors ...InterceptorFunc) ClientOption {
+	return func(c *Client) {
+		c.interceptor = ChainInterceptors(interceptors...)
+	}
+}
+
+// Do sends an HTTP request and returns an HTTP response, following policy
+// (such as redirects, cookies, auth) as configured on the client.
+func (c *Client) Do(method, url string, opts *Options, body []byte) (*Response, error) {
+	r, err := newRequest(method, url, opts, body)
+	if err != nil {
+		return nil, err
+	}
+	var ctx context.Context
+	if opts.ctx != nil {
+		ctx = opts.ctx // use ctx from options if set
+		r.WithContext(opts.ctx)
+	} else {
+		ctx = context.Background()
+	}
 	if r.opts.DumpRequestOut != nil {
 		reqDump, err := httputil.DumpRequestOut(r.Request, true)
 		if err != nil {
@@ -28,15 +62,12 @@ func (c *Client) Do(ctx context.Context, r *Request) (*Response, error) {
 		}
 		*r.opts.DumpRequestOut = string(reqDump)
 	}
-	if ctx != nil {
-		r = r.WithContext(ctx)
-	}
 	var interceptors []InterceptorFunc
 	if r.opts.Interceptor != nil {
 		interceptors = append(interceptors, r.opts.Interceptor)
 	}
-	if env.interceptor != nil {
-		interceptors = append(interceptors, env.interceptor)
+	if c.interceptor != nil {
+		interceptors = append(interceptors, c.interceptor)
 	}
 	interceptor := ChainInterceptors(interceptors...)
 	if interceptor != nil {

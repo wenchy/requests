@@ -11,9 +11,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-
-	"github.com/Wenchy/requests/internal/auth"
-	"github.com/Wenchy/requests/internal/auth/redirector"
 )
 
 // Request is a wrapper of http.Request.
@@ -25,9 +22,8 @@ type Request struct {
 
 // WithContext returns a shallow copy of r.Request with its context changed to ctx.
 // The provided ctx must be non-nil.
-func (r *Request) WithContext(ctx context.Context) *Request {
+func (r *Request) WithContext(ctx context.Context) {
 	r.Request = r.Request.WithContext(ctx)
-	return r
 }
 
 // Bytes returns the HTTP request body as []byte.
@@ -65,93 +61,15 @@ func newRequest(method, url string, opts *Options, body []byte) (*Request, error
 	// auth
 	if opts.AuthInfo != nil {
 		// TODO(wenchy): some other auth types
-		if opts.AuthInfo.Type == auth.BasicAuth {
+		if opts.AuthInfo.Type == AuthTypeBasic {
 			r.SetBasicAuth(opts.AuthInfo.Username, opts.AuthInfo.Password)
 		}
 	}
 	return &Request{Request: r, opts: opts, body: body}, nil
 }
 
-// do sends an HTTP request and returns an HTTP response, following policy
-// (such as redirects, cookies, auth) as configured on the client.
-func do(method, url string, opts *Options, body []byte) (*Response, error) {
-	req, err := newRequest(method, url, opts, body)
-	if err != nil {
-		return nil, err
-	}
-
-	// NOTE: Keep-Alive & Connection Pooling
-	//
-	// 1. Keep-Alive
-	//
-	// 	The net/http Transport documentation uses the term to refer to
-	//  persistent connections. A keep-alive or persistent connection
-	//  is a connection that can be used for more than one HTTP
-	//  transaction.
-	//
-	// 	The Transport.IdleConnTimeout field specifies how long the
-	//  transport keeps an unused connection in the pool before closing
-	//  the connection.
-	//
-	//  The net Dialer documentation uses the keep-alive term to refer
-	//  the TCP feature for probing the health of a connection.
-	// 	Dialer.KeepAlive field specifies how frequently TCP keep-alive
-	//  probes are sent to the peer.
-	//
-	// 2. Connection Pooling
-	//
-	//  Connections are added to the pool in the function
-	//  Transport.tryPutIdleConn. The connection is not pooled if
-	//  Transport.DisableKeepAlives is true or Transport.MaxIdleConnsPerHost
-	//  is less than zero.
-	//
-	//  Setting either value disables pooling. The transport adds the
-	//  "Connection: close" request header when DisableKeepAlives is true.
-	//  This may or may not be desirable depending on what you are testing.
-	//
-	// 3. References:
-	//
-	// - https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
-	// - https://stackoverflow.com/questions/59656164/what-is-the-difference-between-net-dialerkeepalive-and-http-transportidletimeo
-	var roundTripper http.RoundTripper
-	if opts.RoundTripper != nil {
-		roundTripper = opts.RoundTripper
-	} else {
-		if rt := env.hostRoundTrippers[req.Host]; rt != nil {
-			// Use the host-specific RoundTripper if set.
-			roundTripper = rt
-		} else if opts.DisableKeepAlives {
-			// If option DisableKeepAlives set as true, then clone a new transport
-			// just for this one-off HTTP request.
-			transport := env.transport.Clone()
-			transport.DisableKeepAlives = true
-			roundTripper = transport
-		} else {
-			// If option DisableKeepAlives not set as true, then use the default
-			// transport.
-			roundTripper = env.transport
-		}
-	}
-	client := &Client{
-		Client: &http.Client{
-			CheckRedirect: redirector.RedirectPolicyFunc,
-			Timeout:       opts.Timeout,
-			Transport:     roundTripper,
-		},
-	}
-	var ctx context.Context
-	if opts.ctx != nil {
-		ctx = opts.ctx // use ctx from options if set
-	} else {
-		newCtx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
-		defer cancel()
-		ctx = newCtx
-	}
-	return client.Do(ctx, req)
-}
-
 // request sends an HTTP request.
-func request(method, url string, opts *Options) (*Response, error) {
+func request(c *Client, method, url string, opts *Options) (*Response, error) {
 	// NOTE: get the body size from io.Reader. It is costy for large body.
 	body := bytes.NewBuffer(nil)
 	if opts.Body != nil {
@@ -161,12 +79,12 @@ func request(method, url string, opts *Options) (*Response, error) {
 		}
 	}
 	opts.Body = body
-	return do(method, url, opts, body.Bytes())
+	return c.Do(method, url, opts, body.Bytes())
 }
 
 // requestData sends an HTTP request to the specified URL, with raw string
 // as the request body.
-func requestData(method, url string, opts *Options) (*Response, error) {
+func requestData(c *Client, method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	if opts.Data != nil {
 		d := fmt.Sprintf("%v", opts.Data)
@@ -178,12 +96,12 @@ func requestData(method, url string, opts *Options) (*Response, error) {
 	// TODO: judge content type
 	// opts.Headers["Content-Type"] = "application/x-www-form-urlencoded"
 	opts.Body = body
-	return do(method, url, opts, body.Bytes())
+	return c.Do(method, url, opts, body.Bytes())
 }
 
 // requestForm sends an HTTP request to the specified URL, with form's keys and
 // values URL-encoded as the request body.
-func requestForm(method, url string, opts *Options) (*Response, error) {
+func requestForm(c *Client, method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	if opts.Form != nil {
 		d := opts.Form.Encode()
@@ -194,11 +112,11 @@ func requestForm(method, url string, opts *Options) (*Response, error) {
 	}
 	opts.Headers.Set("Content-Type", "application/x-www-form-urlencoded")
 	opts.Body = body
-	return do(method, url, opts, body.Bytes())
+	return c.Do(method, url, opts, body.Bytes())
 }
 
 // requestJSON sends an HTTP request, and encode request body as json.
-func requestJSON(method, url string, opts *Options) (*Response, error) {
+func requestJSON(c *Client, method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	if opts.JSON != nil {
 		d, err := json.Marshal(opts.JSON)
@@ -212,11 +130,11 @@ func requestJSON(method, url string, opts *Options) (*Response, error) {
 	}
 	opts.Headers.Set("Content-Type", "application/json")
 	opts.Body = body
-	return do(method, url, opts, body.Bytes())
+	return c.Do(method, url, opts, body.Bytes())
 }
 
 // requestFiles sends an uploading request for multiple multipart-encoded files.
-func requestFiles(method, url string, opts *Options) (*Response, error) {
+func requestFiles(c *Client, method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	bodyWriter := multipart.NewWriter(body)
 	if opts.Files != nil {
@@ -236,7 +154,7 @@ func requestFiles(method, url string, opts *Options) (*Response, error) {
 	}
 	opts.Headers.Set("Content-Type", bodyWriter.FormDataContentType())
 	opts.Body = body
-	return do(method, url, opts, body.Bytes())
+	return c.Do(method, url, opts, body.Bytes())
 }
 
 type bodyType int
@@ -249,21 +167,17 @@ const (
 	bodyTypeFiles
 )
 
-type dispatcher func(method, url string, opts *Options) (*Response, error)
+type dispatcher func(c *Client, method, url string, opts *Options) (*Response, error)
 
-var dispatchers map[bodyType]dispatcher
-
-func init() {
-	dispatchers = map[bodyType]dispatcher{
-		bodyTypeDefault: request,
-		bodyTypeData:    requestData,
-		bodyTypeForm:    requestForm,
-		bodyTypeJSON:    requestJSON,
-		bodyTypeFiles:   requestFiles,
-	}
+var dispatchers map[bodyType]dispatcher = map[bodyType]dispatcher{
+	bodyTypeDefault: request,
+	bodyTypeData:    requestData,
+	bodyTypeForm:    requestForm,
+	bodyTypeJSON:    requestJSON,
+	bodyTypeFiles:   requestFiles,
 }
 
-func callMethod(method, url string, options ...Option) (*Response, error) {
+func (c *Client) callMethod(method, url string, options ...Option) (*Response, error) {
 	opts := parseOptions(options...)
-	return dispatchers[opts.bodyType](method, url, opts)
+	return dispatchers[opts.bodyType](c, method, url, opts)
 }
