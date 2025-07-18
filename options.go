@@ -7,9 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"time"
-
-	"github.com/Wenchy/requests/internal/auth"
 )
 
 // Options defines all optional parameters for HTTP request.
@@ -33,19 +30,13 @@ type Options struct {
 	ToJSON any
 
 	// auth
-	AuthInfo *auth.AuthInfo
-	// request timeout
-	Timeout time.Duration
-
-	DisableKeepAlives bool
+	AuthInfo *AuthInfo
 	// dump
 	DumpRequestOut *string
 	DumpResponse   *string
 
 	// interceptor
 	Interceptor InterceptorFunc
-	// round tripper
-	RoundTripper http.RoundTripper
 }
 
 // Option is the functional option type.
@@ -56,7 +47,6 @@ func newDefaultOptions() *Options {
 	return &Options{
 		Headers:  http.Header{},
 		bodyType: bodyTypeDefault,
-		Timeout:  env.timeout,
 	}
 }
 
@@ -326,34 +316,11 @@ func ToJSON(v any) Option {
 // BasicAuth is the option to implement HTTP Basic Auth.
 func BasicAuth(username, password string) Option {
 	return func(opts *Options) {
-		opts.AuthInfo = &auth.AuthInfo{
-			Type:     auth.BasicAuth,
+		opts.AuthInfo = &AuthInfo{
+			Type:     AuthTypeBasic,
 			Username: username,
 			Password: password,
 		}
-	}
-}
-
-// Timeout specifies a time limit for requests made by this
-// Client. The timeout includes connection time, any
-// redirects, and reading the response body. The timer remains
-// running after Get, Head, Post, or Do return and will
-// interrupt reading of the Response.Body.
-//
-// A Timeout of zero means no timeout. Default is 60s.
-func Timeout(timeout time.Duration) Option {
-	return func(opts *Options) {
-		opts.Timeout = timeout
-	}
-}
-
-// DisableKeepAlives, if true, disables HTTP keep-alives and will
-// only use the connection to the server for a single HTTP request.
-//
-// This is unrelated to the similarly named TCP keep-alives.
-func DisableKeepAlives() Option {
-	return func(opts *Options) {
-		opts.DisableKeepAlives = true
 	}
 }
 
@@ -375,14 +342,5 @@ func Dump(req, resp *string) Option {
 func Interceptor(interceptor InterceptorFunc) Option {
 	return func(opts *Options) {
 		opts.Interceptor = interceptor
-	}
-}
-
-// Transport specifies a custom RoundTripper for current request only.
-//
-// NOTE: If specified, then option DisableKeepAlives() will not work.
-func Transport(rt http.RoundTripper) Option {
-	return func(opts *Options) {
-		opts.RoundTripper = rt
 	}
 }

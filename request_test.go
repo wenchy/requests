@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	WithInterceptor(logInterceptor, metricInterceptor, traceInterceptor)
+	InitDefaultClient(WithInterceptor(logInterceptor, metricInterceptor, traceInterceptor))
 }
 
 func logInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {
@@ -82,26 +82,6 @@ func TestGet(t *testing.T) {
 				url: testServer.URL,
 				options: []Option{
 					BasicAuth("XXX", "OOO"),
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "http server not available",
-			args: args{
-				url: "https://127.0.0.1:4004",
-				options: []Option{
-					Timeout(120 * time.Second),
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "disable keep alive",
-			args: args{
-				url: testServer.URL,
-				options: []Option{
-					DisableKeepAlives(),
 				},
 			},
 			wantErr: false,
@@ -446,7 +426,6 @@ func TestPostJSON(t *testing.T) {
 	type args struct {
 		url     string
 		options []Option
-		timeout time.Duration
 	}
 	tests := []struct {
 		name    string
@@ -468,16 +447,12 @@ func TestPostJSON(t *testing.T) {
 					ToText(&textResp),
 					Dump(&reqDump, &respDump),
 				},
-				timeout: 5 * time.Second,
 			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.args.timeout != 0 {
-				SetEnvTimeout(tt.args.timeout)
-			}
 			got, err := Post(tt.args.url, tt.args.options...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
@@ -575,7 +550,7 @@ func TestPostFiles(t *testing.T) {
 						"file1": fh1,
 						"file2": fh2,
 					}),
-					Timeout(120 * time.Second),
+					// Timeout(120 * time.Second),
 				},
 			},
 			wantErr: false,
@@ -589,7 +564,7 @@ func TestPostFiles(t *testing.T) {
 						"file1": fh1,
 						"file2": fh2,
 					}),
-					Timeout(120 * time.Second),
+					// Timeout(120 * time.Second),
 				},
 			},
 			wantErr: true,
@@ -640,7 +615,6 @@ func TestPatch(t *testing.T) {
 						"status":  0,
 						"message": "hello http patch",
 					}),
-					Timeout(120 * time.Second),
 				},
 			},
 			wantErr: false,
@@ -654,7 +628,6 @@ func TestPatch(t *testing.T) {
 						"status":  0,
 						"message": "hello http patch",
 					}),
-					Timeout(120 * time.Second),
 				},
 			},
 			wantErr: true,
@@ -768,7 +741,6 @@ func TestInterceptors(t *testing.T) {
 						"file1": fh1,
 						"file2": fh2,
 					}),
-					Timeout(120 * time.Second),
 				},
 			},
 			wantErr: false,
@@ -787,103 +759,6 @@ func TestInterceptors(t *testing.T) {
 			}
 			if resp != nil {
 				t.Logf("resp: %s", resp.Text())
-			}
-		})
-	}
-}
-
-type CustomTransport struct {
-	*http.Transport
-}
-
-func (ct CustomTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Set("X-Transport", "CustomTransport")
-	return ct.Transport.RoundTrip(req)
-}
-
-func TestSetHostTransport(t *testing.T) {
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		body := r.Header.Get("X-Transport")
-		n, err := w.Write([]byte(body))
-		assert.NoError(t, err)
-		assert.Equal(t, n, len(body))
-	}))
-	defer testServer.Close()
-	testServer1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer testServer1.Close()
-	testServer2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		body := r.Header.Get("X-Transport") + "(testServer2)"
-		n, err := w.Write([]byte(body))
-		assert.NoError(t, err)
-		assert.Equal(t, n, len(body))
-	}))
-	defer testServer.Close()
-	// Parse the URL string
-	serverURL, err := url.Parse(testServer.URL)
-	assert.NoError(t, err)
-
-	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
-	assert.Equal(t, true, ok)
-
-	trans := defaultTransport.Clone()
-	trans.DisableKeepAlives = true
-	trans.MaxIdleConns = 1
-	trans.IdleConnTimeout = 10 * time.Second
-	customTransport := CustomTransport{
-		Transport: trans,
-	}
-
-	SetHostTransport(map[string]http.RoundTripper{
-		serverURL.Host: customTransport,
-	})
-	type args struct {
-		url     string
-		options []Option
-	}
-	tests := []struct {
-		name     string
-		args     args
-		wantErr  bool
-		wantBody string
-	}{
-		{
-			name: "hit host transport at env level",
-			args: args{
-				url: testServer.URL,
-			},
-			wantBody: "CustomTransport",
-		},
-		{
-			name: "miss host transport at env level",
-			args: args{
-				url: testServer1.URL,
-			},
-			wantBody: "",
-		},
-		{
-			name: "host transport for current request",
-			args: args{
-				url: testServer2.URL,
-				options: []Option{
-					Transport(customTransport),
-				},
-			},
-			wantBody: "CustomTransport(testServer2)",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := Get(tt.args.url, tt.args.options...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if err == nil {
-				assert.Equal(t, tt.wantBody, string(got.Bytes()))
 			}
 		})
 	}
