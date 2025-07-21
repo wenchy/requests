@@ -48,13 +48,6 @@ func (c *Client) Do(method, url string, opts *Options, body []byte) (*Response, 
 	if err != nil {
 		return nil, err
 	}
-	var ctx context.Context
-	if opts.ctx != nil {
-		ctx = opts.ctx // use ctx from options if set
-		r.WithContext(opts.ctx)
-	} else {
-		ctx = context.Background()
-	}
 	if r.opts.DumpRequestOut != nil {
 		reqDump, err := httputil.DumpRequestOut(r.Request, true)
 		if err != nil {
@@ -71,9 +64,9 @@ func (c *Client) Do(method, url string, opts *Options, body []byte) (*Response, 
 	}
 	interceptor := ChainInterceptors(interceptors...)
 	if interceptor != nil {
-		return interceptor(ctx, r, c.do)
+		return interceptor(opts.ctx, r, c.do)
 	}
-	return c.do(ctx, r)
+	return c.do(opts.ctx, r)
 }
 
 func (c *Client) do(ctx context.Context, r *Request) (*Response, error) {

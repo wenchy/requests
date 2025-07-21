@@ -45,6 +45,7 @@ type Option func(*Options)
 // newDefaultOptions creates a new default HTTP options.
 func newDefaultOptions() *Options {
 	return &Options{
+		ctx:      context.Background(),
 		Headers:  http.Header{},
 		bodyType: bodyTypeDefault,
 	}
