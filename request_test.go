@@ -113,13 +113,13 @@ func TestGet(t *testing.T) {
 
 func TestGetWithContext(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(2 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer testServer.Close()
-	ctx1s, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx10ms, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
-	ctx5s, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx200ms, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 	type args struct {
 		url     string
@@ -131,21 +131,21 @@ func TestGetWithContext(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "with context 1s",
+			name: "with context 10ms",
 			args: args{
 				url: testServer.URL,
 				options: []Option{
-					Context(ctx1s),
+					Context(ctx10ms),
 				},
 			},
 			wantErr: true,
 		},
 		{
-			name: "with context 3s",
+			name: "with context 200ms",
 			args: args{
 				url: testServer.URL,
 				options: []Option{
-					Context(ctx5s),
+					Context(ctx200ms),
 				},
 			},
 			wantErr: false,
