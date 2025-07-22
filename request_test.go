@@ -87,6 +87,16 @@ func TestGet(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "http server not available",
+			args: args{
+				url: "https://127.0.0.1:4004",
+				options: []Option{
+					Timeout(120 * time.Second),
+				},
+			},
+			wantErr: true,
+		},
+		{
 			name: "manipulate URLs and query parameters",
 			args: args{
 				url: testServer.URL + "/get?a=1&b=2",
@@ -550,7 +560,7 @@ func TestPostFiles(t *testing.T) {
 						"file1": fh1,
 						"file2": fh2,
 					}),
-					// Timeout(120 * time.Second),
+					Timeout(120 * time.Second),
 				},
 			},
 			wantErr: false,
@@ -564,7 +574,7 @@ func TestPostFiles(t *testing.T) {
 						"file1": fh1,
 						"file2": fh2,
 					}),
-					// Timeout(120 * time.Second),
+					Timeout(120 * time.Second),
 				},
 			},
 			wantErr: true,
@@ -615,6 +625,7 @@ func TestPatch(t *testing.T) {
 						"status":  0,
 						"message": "hello http patch",
 					}),
+					Timeout(120 * time.Second),
 				},
 			},
 			wantErr: false,
@@ -628,6 +639,7 @@ func TestPatch(t *testing.T) {
 						"status":  0,
 						"message": "hello http patch",
 					}),
+					Timeout(120 * time.Second),
 				},
 			},
 			wantErr: true,
@@ -741,6 +753,7 @@ func TestInterceptors(t *testing.T) {
 						"file1": fh1,
 						"file2": fh2,
 					}),
+					Timeout(120 * time.Second),
 				},
 			},
 			wantErr: false,

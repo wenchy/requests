@@ -3,6 +3,8 @@ package requests
 import (
 	"net/http"
 	"sync"
+
+	"github.com/Wenchy/requests/internal/auth/redirector"
 )
 
 var (
@@ -13,7 +15,7 @@ var (
 func newDefaultClient() *Client {
 	return &Client{
 		Client: &http.Client{
-			CheckRedirect: RedirectPolicyFunc,
+			CheckRedirect: redirector.RedirectPolicyFunc,
 		},
 	}
 }

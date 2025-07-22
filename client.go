@@ -55,6 +55,12 @@ func (c *Client) Do(method, url string, opts *Options, body []byte) (*Response, 
 		}
 		*r.opts.DumpRequestOut = string(reqDump)
 	}
+	ctx := opts.ctx
+	if opts.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+		defer cancel()
+	}
 	var interceptors []InterceptorFunc
 	if r.opts.Interceptor != nil {
 		interceptors = append(interceptors, r.opts.Interceptor)
@@ -64,9 +70,9 @@ func (c *Client) Do(method, url string, opts *Options, body []byte) (*Response, 
 	}
 	interceptor := ChainInterceptors(interceptors...)
 	if interceptor != nil {
-		return interceptor(opts.ctx, r, c.do)
+		return interceptor(ctx, r, c.do)
 	}
-	return c.do(opts.ctx, r)
+	return c.do(ctx, r)
 }
 
 func (c *Client) do(ctx context.Context, r *Request) (*Response, error) {

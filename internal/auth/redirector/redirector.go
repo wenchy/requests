@@ -1,4 +1,4 @@
-package requests
+package redirector
 
 import (
 	"errors"

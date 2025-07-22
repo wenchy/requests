@@ -11,6 +11,8 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+
+	"github.com/Wenchy/requests/internal/auth"
 )
 
 // Request is a wrapper of http.Request.
@@ -61,7 +63,7 @@ func newRequest(method, url string, opts *Options, body []byte) (*Request, error
 	// auth
 	if opts.AuthInfo != nil {
 		// TODO(wenchy): some other auth types
-		if opts.AuthInfo.Type == AuthTypeBasic {
+		if opts.AuthInfo.Type == auth.BasicAuth {
 			r.SetBasicAuth(opts.AuthInfo.Username, opts.AuthInfo.Password)
 		}
 	}

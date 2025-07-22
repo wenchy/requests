@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
+
+	"github.com/Wenchy/requests/internal/auth"
 )
 
 // Options defines all optional parameters for HTTP request.
@@ -30,7 +33,10 @@ type Options struct {
 	ToJSON any
 
 	// auth
-	AuthInfo *AuthInfo
+	AuthInfo *auth.AuthInfo
+	// request timeout
+	Timeout time.Duration
+
 	// dump
 	DumpRequestOut *string
 	DumpResponse   *string
@@ -317,11 +323,24 @@ func ToJSON(v any) Option {
 // BasicAuth is the option to implement HTTP Basic Auth.
 func BasicAuth(username, password string) Option {
 	return func(opts *Options) {
-		opts.AuthInfo = &AuthInfo{
-			Type:     AuthTypeBasic,
+		opts.AuthInfo = &auth.AuthInfo{
+			Type:     auth.BasicAuth,
 			Username: username,
 			Password: password,
 		}
+	}
+}
+
+// Timeout specifies a time limit for requests made by this
+// Client. The timeout includes connection time, any
+// redirects, and reading the response body. The timer remains
+// running after Get, Head, Post, or Do return and will
+// interrupt reading of the Response.Body.
+//
+// A Timeout of zero means no timeout. Default is 60s.
+func Timeout(timeout time.Duration) Option {
+	return func(opts *Options) {
+		opts.Timeout = timeout
 	}
 }
 
