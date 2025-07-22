@@ -5,7 +5,6 @@ package requests
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,12 +19,6 @@ type Request struct {
 	*http.Request
 	opts *Options
 	body []byte // auto filled from Request.Body
-}
-
-// WithContext returns a shallow copy of r.Request with its context changed to ctx.
-// The provided ctx must be non-nil.
-func (r *Request) WithContext(ctx context.Context) {
-	r.Request = r.Request.WithContext(ctx)
 }
 
 // Bytes returns the HTTP request body as []byte.

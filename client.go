@@ -11,7 +11,7 @@ import (
 type ClientOption func(*Client)
 
 type Client struct {
-	*http.Client
+	client      *http.Client
 	interceptor InterceptorFunc
 }
 
@@ -25,13 +25,13 @@ func NewClient(options ...ClientOption) *Client {
 
 func WithTimeout(timeout time.Duration) ClientOption {
 	return func(c *Client) {
-		c.Timeout = timeout
+		c.client.Timeout = timeout
 	}
 }
 
 func WithTransport(transport http.RoundTripper) ClientOption {
 	return func(c *Client) {
-		c.Transport = transport
+		c.client.Transport = transport
 	}
 }
 
@@ -78,7 +78,7 @@ func (c *Client) Do(method, url string, opts *Options, body []byte) (*Response, 
 func (c *Client) do(ctx context.Context, r *Request) (*Response, error) {
 	// If the returned error is nil, the Response will contain
 	// a non-nil Body which the user is expected to close.
-	resp, err := c.Client.Do(r.Request)
+	resp, err := c.client.Do(r.Request)
 	if err != nil {
 		return nil, err
 	}

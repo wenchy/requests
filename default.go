@@ -14,7 +14,7 @@ var (
 
 func newDefaultClient() *Client {
 	return &Client{
-		Client: &http.Client{
+		client: &http.Client{
 			CheckRedirect: redirector.RedirectPolicyFunc,
 		},
 	}
