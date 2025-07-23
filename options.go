@@ -37,15 +37,12 @@ type Options struct {
 	// request timeout
 	Timeout time.Duration
 
-	DisableKeepAlives bool
 	// dump
 	DumpRequestOut *string
 	DumpResponse   *string
 
 	// interceptor
 	Interceptor InterceptorFunc
-	// round tripper
-	RoundTripper http.RoundTripper
 }
 
 // Option is the functional option type.
@@ -54,9 +51,9 @@ type Option func(*Options)
 // newDefaultOptions creates a new default HTTP options.
 func newDefaultOptions() *Options {
 	return &Options{
+		ctx:      context.Background(),
 		Headers:  http.Header{},
 		bodyType: bodyTypeDefault,
-		Timeout:  env.timeout,
 	}
 }
 
@@ -334,26 +331,11 @@ func BasicAuth(username, password string) Option {
 	}
 }
 
-// Timeout specifies a time limit for requests made by this
-// Client. The timeout includes connection time, any
-// redirects, and reading the response body. The timer remains
-// running after Get, Head, Post, or Do return and will
-// interrupt reading of the Response.Body.
-//
-// A Timeout of zero means no timeout. Default is 60s.
+// Timeout creates a new context with specified timeout for
+// the current request.
 func Timeout(timeout time.Duration) Option {
 	return func(opts *Options) {
 		opts.Timeout = timeout
-	}
-}
-
-// DisableKeepAlives, if true, disables HTTP keep-alives and will
-// only use the connection to the server for a single HTTP request.
-//
-// This is unrelated to the similarly named TCP keep-alives.
-func DisableKeepAlives() Option {
-	return func(opts *Options) {
-		opts.DisableKeepAlives = true
 	}
 }
 
@@ -375,14 +357,5 @@ func Dump(req, resp *string) Option {
 func Interceptor(interceptor InterceptorFunc) Option {
 	return func(opts *Options) {
 		opts.Interceptor = interceptor
-	}
-}
-
-// Transport specifies a custom RoundTripper for current request only.
-//
-// NOTE: If specified, then option DisableKeepAlives() will not work.
-func Transport(rt http.RoundTripper) Option {
-	return func(opts *Options) {
-		opts.RoundTripper = rt
 	}
 }
