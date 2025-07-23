@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	InitDefaultClient(WithInterceptor(logInterceptor, metricInterceptor, traceInterceptor))
+	InitDefaultClient(WithInterceptor(ChainInterceptors(logInterceptor, metricInterceptor, traceInterceptor)))
 }
 
 func logInterceptor(ctx context.Context, r *Request, do Do) (*Response, error) {

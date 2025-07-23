@@ -331,13 +331,8 @@ func BasicAuth(username, password string) Option {
 	}
 }
 
-// Timeout specifies a time limit for requests made by this
-// Client. The timeout includes connection time, any
-// redirects, and reading the response body. The timer remains
-// running after Get, Head, Post, or Do return and will
-// interrupt reading of the Response.Body.
-//
-// A Timeout of zero means no timeout. Default is 60s.
+// Timeout creates a new context with specified timeout for
+// the current request.
 func Timeout(timeout time.Duration) Option {
 	return func(opts *Options) {
 		opts.Timeout = timeout

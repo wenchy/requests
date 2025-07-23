@@ -10,11 +10,13 @@ import (
 // ClientOption is the functional option type.
 type ClientOption func(*Client)
 
+// Client is an HTTP client which wraps around [http.Client] for elegant APIs and easy use.
 type Client struct {
 	client      *http.Client
 	interceptor InterceptorFunc
 }
 
+// NewClient creates a new client to serve HTTP requests.
 func NewClient(options ...ClientOption) *Client {
 	client := newDefaultClient()
 	for _, setter := range options {
@@ -23,21 +25,27 @@ func NewClient(options ...ClientOption) *Client {
 	return client
 }
 
+// WithTimeout specifies a time limit for requests made by this client.
+//
+// A Timeout of zero means no timeout. Default is zero.
 func WithTimeout(timeout time.Duration) ClientOption {
 	return func(c *Client) {
 		c.client.Timeout = timeout
 	}
 }
 
+// WithTransport specifies a round ripper for requests made by this client.
 func WithTransport(transport http.RoundTripper) ClientOption {
 	return func(c *Client) {
 		c.client.Transport = transport
 	}
 }
 
-func WithInterceptor(interceptors ...InterceptorFunc) ClientOption {
+// WithInterceptor specifies an interceptor for requests made by this client.
+// Use `ChainInterceptors` to chain multiple interceptors into one.
+func WithInterceptor(interceptor InterceptorFunc) ClientOption {
 	return func(c *Client) {
-		c.interceptor = ChainInterceptors(interceptors...)
+		c.interceptor = interceptor
 	}
 }
 
