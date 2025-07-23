@@ -74,7 +74,7 @@ func request(c *Client, method, url string, opts *Options) (*Response, error) {
 		}
 	}
 	opts.Body = body
-	return c.Do(method, url, opts, body.Bytes())
+	return c.request(method, url, opts, body.Bytes())
 }
 
 // requestData sends an HTTP request to the specified URL, with raw string
@@ -91,7 +91,7 @@ func requestData(c *Client, method, url string, opts *Options) (*Response, error
 	// TODO: judge content type
 	// opts.Headers["Content-Type"] = "application/x-www-form-urlencoded"
 	opts.Body = body
-	return c.Do(method, url, opts, body.Bytes())
+	return c.request(method, url, opts, body.Bytes())
 }
 
 // requestForm sends an HTTP request to the specified URL, with form's keys and
@@ -107,7 +107,7 @@ func requestForm(c *Client, method, url string, opts *Options) (*Response, error
 	}
 	opts.Headers.Set("Content-Type", "application/x-www-form-urlencoded")
 	opts.Body = body
-	return c.Do(method, url, opts, body.Bytes())
+	return c.request(method, url, opts, body.Bytes())
 }
 
 // requestJSON sends an HTTP request, and encode request body as json.
@@ -125,7 +125,7 @@ func requestJSON(c *Client, method, url string, opts *Options) (*Response, error
 	}
 	opts.Headers.Set("Content-Type", "application/json")
 	opts.Body = body
-	return c.Do(method, url, opts, body.Bytes())
+	return c.request(method, url, opts, body.Bytes())
 }
 
 // requestFiles sends an uploading request for multiple multipart-encoded files.
@@ -149,7 +149,7 @@ func requestFiles(c *Client, method, url string, opts *Options) (*Response, erro
 	}
 	opts.Headers.Set("Content-Type", bodyWriter.FormDataContentType())
 	opts.Body = body
-	return c.Do(method, url, opts, body.Bytes())
+	return c.request(method, url, opts, body.Bytes())
 }
 
 type bodyType int
@@ -170,9 +170,4 @@ var dispatchers map[bodyType]dispatcher = map[bodyType]dispatcher{
 	bodyTypeForm:    requestForm,
 	bodyTypeJSON:    requestJSON,
 	bodyTypeFiles:   requestFiles,
-}
-
-func (c *Client) callMethod(method, url string, options ...Option) (*Response, error) {
-	opts := parseOptions(options...)
-	return dispatchers[opts.bodyType](c, method, url, opts)
 }
