@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -772,6 +773,144 @@ func TestInterceptors(t *testing.T) {
 			}
 			if resp != nil {
 				t.Logf("resp: %s", resp.Text())
+			}
+		})
+	}
+}
+
+func toPtr[T any](v T) *T {
+	return &v
+}
+
+func Test_deduceContentTypeAndBody(t *testing.T) {
+	type mystruct struct {
+		A int
+		B string
+	}
+	tests := []struct {
+		name  string
+		body  any
+		want  string
+		want2 []byte
+	}{
+		{
+			name:  "int",
+			body:  123,
+			want:  plainTextType,
+			want2: []byte("123"),
+		},
+		{
+			name:  "*int",
+			body:  toPtr(123),
+			want:  plainTextType,
+			want2: []byte("123"),
+		},
+		{
+			name:  "string",
+			body:  "abc",
+			want:  plainTextType,
+			want2: []byte("abc"),
+		},
+		{
+			name:  "*string",
+			body:  toPtr("abc"),
+			want:  plainTextType,
+			want2: []byte("abc"),
+		},
+		{
+			name:  "bytes",
+			body:  []byte("abc"),
+			want:  plainTextType,
+			want2: []byte("abc"),
+		},
+		{
+			name:  "struct",
+			body:  mystruct{A: 123, B: "abc"},
+			want:  jsonContentType,
+			want2: []byte(`{"A":123,"B":"abc"}`),
+		},
+		{
+			name:  "*struct",
+			body:  &mystruct{A: 123, B: "abc"},
+			want:  jsonContentType,
+			want2: []byte(`{"A":123,"B":"abc"}`),
+		},
+		{
+			name:  "map",
+			body:  map[int]string{1: "a", 2: "b", 3: "c"},
+			want:  jsonContentType,
+			want2: []byte(`{"1":"a","2":"b","3":"c"}`),
+		},
+		{
+			name:  "[]int",
+			body:  []int{123, 456},
+			want:  jsonContentType,
+			want2: []byte("[123,456]"),
+		},
+		{
+			name:  "[]*int",
+			body:  []*int{toPtr(123), toPtr(456)},
+			want:  jsonContentType,
+			want2: []byte("[123,456]"),
+		},
+		{
+			name:  "[]string",
+			body:  []string{"abc", "def"},
+			want:  jsonContentType,
+			want2: []byte(`["abc","def"]`),
+		},
+		{
+			name:  "[]*string",
+			body:  []*string{toPtr("abc"), toPtr("def")},
+			want:  jsonContentType,
+			want2: []byte(`["abc","def"]`),
+		},
+		{
+			name:  "[]bytes",
+			body:  [][]byte{[]byte("abc"), []byte("def")},
+			want:  jsonContentType,
+			want2: []byte(`["YWJj","ZGVm"]`),
+		},
+		{
+			name: "[]struct",
+			body: []mystruct{
+				{A: 123, B: "abc"},
+				{A: 456, B: "def"},
+			},
+			want:  jsonContentType,
+			want2: []byte(`[{"A":123,"B":"abc"},{"A":456,"B":"def"}]`),
+		},
+		{
+			name: "[]*struct",
+			body: []*mystruct{
+				{A: 123, B: "abc"},
+				{A: 456, B: "def"},
+			},
+			want:  jsonContentType,
+			want2: []byte(`[{"A":123,"B":"abc"},{"A":456,"B":"def"}]`),
+		},
+		{
+			name: "[]map",
+			body: []map[int]string{
+				{1: "a", 2: "b", 3: "c"},
+				{4: "d", 5: "e", 6: "f"},
+			},
+			want:  jsonContentType,
+			want2: []byte(`[{"1":"a","2":"b","3":"c"},{"4":"d","5":"e","6":"f"}]`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got2, gotErr := deduceContentTypeAndBody(tt.body)
+			if gotErr != nil {
+				t.Errorf("detectContentType() failed: %v", gotErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("detectContentType() = %v, want %v", got, tt.want)
+			}
+			if !slices.Equal(got2, tt.want2) {
+				t.Errorf("detectContentType() = %v, want %v", string(got2), string(tt.want2))
 			}
 		})
 	}

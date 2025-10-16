@@ -210,7 +210,8 @@ func Body(body io.Reader) Option {
 	}
 }
 
-// Data sets raw string into the request body.
+// Data sets data of request body. It also deduces and sets the Content-Type
+// for the input data.
 func Data(data any) Option {
 	return func(opts *Options) {
 		opts.Data = data
