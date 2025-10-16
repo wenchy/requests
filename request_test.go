@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -909,7 +908,7 @@ func Test_deduceContentTypeAndBody(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("detectContentType() = %v, want %v", got, tt.want)
 			}
-			if !slices.Equal(got2, tt.want2) {
+			if string(got2) != string(tt.want2) {
 				t.Errorf("detectContentType() = %v, want %v", string(got2), string(tt.want2))
 			}
 		})
