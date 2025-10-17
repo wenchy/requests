@@ -1,6 +1,7 @@
 package requests
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
@@ -896,6 +897,12 @@ func Test_deduceContentTypeAndBody(t *testing.T) {
 			},
 			want:  jsonContentType,
 			want2: []byte(`[{"1":"a","2":"b","3":"c"},{"4":"d","5":"e","6":"f"}]`),
+		},
+		{
+			name:  "io.Reader",
+			body:  bytes.NewBuffer([]byte("abc")),
+			want:  plainTextType,
+			want2: []byte("abc"),
 		},
 	}
 	for _, tt := range tests {

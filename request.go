@@ -183,6 +183,10 @@ var (
 
 // deduceContentTypeAndBody parses content type and request body from request data
 func deduceContentTypeAndBody(data any) (string, []byte, error) {
+	if reader, ok := data.(io.Reader); ok {
+		body, err := io.ReadAll(reader)
+		return http.DetectContentType(body), body, err
+	}
 	bodyValue := reflect.Indirect(reflect.ValueOf(data))
 	switch bodyValue.Kind() {
 	case reflect.Struct, reflect.Map, reflect.Slice:
