@@ -331,8 +331,7 @@ func BasicAuth(username, password string) Option {
 	}
 }
 
-// Timeout creates a new context with specified timeout for
-// the current request.
+// Timeout sets the HTTP request context timeout by [context.WithTimeout].
 func Timeout(timeout time.Duration) Option {
 	return func(opts *Options) {
 		opts.Timeout = timeout
@@ -343,8 +342,8 @@ func Timeout(timeout time.Duration) Option {
 // input param (req or resp) if not nil.
 //
 // Refer:
-// - https://pkg.go.dev/net/http/httputil#DumpRequestOut
-// - https://pkg.go.dev/net/http/httputil#DumpResponse
+//   - https://pkg.go.dev/net/http/httputil#DumpRequestOut
+//   - https://pkg.go.dev/net/http/httputil#DumpResponse
 func Dump(req, resp *string) Option {
 	return func(opts *Options) {
 		opts.DumpRequestOut = req
