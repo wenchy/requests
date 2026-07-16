@@ -51,7 +51,13 @@ func NewClient(setters ...ClientOption) *Client {
 
 // request is the common func to send an HTTP request.
 func (c *Client) request(method, url string, opts *Options, body []byte) (*Response, error) {
-	r, err := newRequest(method, url, opts, body)
+	ctx := opts.ctx
+	if opts.Timeout > 0 { // ctx with timeout if specified
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+		defer cancel()
+	}
+	r, err := newRequest(ctx, method, url, opts, body)
 	if err != nil {
 		return nil, err
 	}
@@ -61,12 +67,6 @@ func (c *Client) request(method, url string, opts *Options, body []byte) (*Respo
 			return nil, err
 		}
 		*r.opts.DumpRequestOut = string(reqDump)
-	}
-	ctx := opts.ctx
-	if opts.Timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
-		defer cancel()
 	}
 	var interceptors []InterceptorFunc
 	if r.opts.Interceptor != nil {
@@ -84,7 +84,7 @@ func (c *Client) request(method, url string, opts *Options, body []byte) (*Respo
 
 // do sends an HTTP request and returns an HTTP response, following policy
 // (such as redirects, cookies, auth) as configured on the client.
-func (c *Client) do(ctx context.Context, r *Request) (*Response, error) {
+func (c *Client) do(_ context.Context, r *Request) (*Response, error) {
 	// If the returned error is nil, the Response will contain
 	// a non-nil Body which the user is expected to close.
 	resp, err := c.client.Do(r.Request)

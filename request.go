@@ -5,6 +5,7 @@ package requests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,8 +34,8 @@ func (r *Request) Text() string {
 }
 
 // newRequest creates a new HTTP request.
-func newRequest(method, url string, opts *Options, body []byte) (*Request, error) {
-	r, err := http.NewRequestWithContext(opts.ctx, method, url, opts.Body)
+func newRequest(ctx context.Context, method, url string, opts *Options, body []byte) (*Request, error) {
+	r, err := http.NewRequestWithContext(ctx, method, url, opts.Body)
 	if err != nil {
 		return nil, err
 	}

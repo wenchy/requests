@@ -128,13 +128,10 @@ func TestGetWithContext(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer testServer.Close()
-	ctx10ms, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
-	defer cancel()
-	ctx200ms, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
-	defer cancel()
 	type args struct {
-		url     string
-		options []Option
+		url        string
+		ctxTimeout time.Duration
+		options    []Option
 	}
 	tests := []struct {
 		name    string
@@ -144,19 +141,37 @@ func TestGetWithContext(t *testing.T) {
 		{
 			name: "with context 10ms",
 			args: args{
-				url: testServer.URL,
-				options: []Option{
-					Context(ctx10ms),
-				},
+				url:        testServer.URL,
+				ctxTimeout: 10 * time.Millisecond,
 			},
 			wantErr: true,
 		},
 		{
 			name: "with context 200ms",
 			args: args{
-				url: testServer.URL,
+				url:        testServer.URL,
+				ctxTimeout: 200 * time.Millisecond,
+			},
+			wantErr: false,
+		},
+		{
+			name: "with context 200ms and WithTimeout 10ms",
+			args: args{
+				url:        testServer.URL,
+				ctxTimeout: 200 * time.Millisecond,
 				options: []Option{
-					Context(ctx200ms),
+					Timeout(10 * time.Millisecond),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "with context 200ms and WithTimeout 150ms",
+			args: args{
+				url:        testServer.URL,
+				ctxTimeout: 200 * time.Millisecond,
+				options: []Option{
+					Timeout(150 * time.Millisecond),
 				},
 			},
 			wantErr: false,
@@ -164,6 +179,9 @@ func TestGetWithContext(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), tt.args.ctxTimeout)
+			defer cancel()
+			tt.args.options = append(tt.args.options, Context(ctx))
 			got, err := Get(tt.args.url, tt.args.options...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
