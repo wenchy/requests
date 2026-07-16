@@ -126,6 +126,7 @@ func TestGetWithContext(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	}))
+	defer testServer.Close()
 	type args struct {
 		url        string
 		ctxTimeout time.Duration
