@@ -824,6 +824,12 @@ func Test_deduceContentTypeAndBody(t *testing.T) {
 			want2: []byte("abc"),
 		},
 		{
+			name:  "*bytes",
+			body:  toPtr([]byte("abc")),
+			want:  plainTextType,
+			want2: []byte("abc"),
+		},
+		{
 			name:  "struct",
 			body:  mystruct{A: 123, B: "abc"},
 			want:  jsonContentType,
@@ -834,6 +840,12 @@ func Test_deduceContentTypeAndBody(t *testing.T) {
 			body:  &mystruct{A: 123, B: "abc"},
 			want:  jsonContentType,
 			want2: []byte(`{"A":123,"B":"abc"}`),
+		},
+		{
+			name:  "nil *struct",
+			body:  (*mystruct)(nil),
+			want:  plainTextType,
+			want2: []byte("<nil>"),
 		},
 		{
 			name:  "map",

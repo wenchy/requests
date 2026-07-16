@@ -188,15 +188,22 @@ func deduceContentTypeAndBody(data any) (string, []byte, error) {
 		return http.DetectContentType(body), body, err
 	}
 	bodyValue := reflect.Indirect(reflect.ValueOf(data))
+	// A typed nil pointer (e.g. (*MyStruct)(nil)) reaches here as a non-nil
+	// interface but yields an invalid reflect.Value after Indirect. Guard
+	// against it so bodyValue.Interface() below does not panic.
+	if !bodyValue.IsValid() {
+		return plainTextType, fmt.Appendf(nil, "%v", data), nil
+	}
 	switch bodyValue.Kind() {
 	case reflect.Struct, reflect.Map, reflect.Slice:
-		// check slice here to differentiate between any slice vs byte slice
-		if body, ok := data.([]byte); ok {
+		// check slice here to differentiate between any slice vs byte slice.
+		// Assert against the (possibly dereferenced) bodyValue so that *[]byte
+		// is treated as raw bytes instead of being JSON/base64-marshaled.
+		if body, ok := bodyValue.Interface().([]byte); ok {
 			return http.DetectContentType(body), body, nil
-		} else {
-			body, err := json.Marshal(data)
-			return jsonContentType, body, err
 		}
+		body, err := json.Marshal(data)
+		return jsonContentType, body, err
 	default:
 		return plainTextType, fmt.Appendf(nil, "%v", bodyValue.Interface()), nil
 	}
