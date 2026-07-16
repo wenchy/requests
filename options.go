@@ -210,7 +210,12 @@ func Body(body io.Reader) Option {
 	}
 }
 
-// Data sets raw string into the request body.
+// Data sets data of request body. It also deduces Content-Type based on
+// input data types:
+//
+// 1. auto deduce by [http.DetectContentType]: io.Reader, []byte
+// 2. "application/json": struct, slice(except []byte), and map
+// 3. "text/plain": others
 func Data(data any) Option {
 	return func(opts *Options) {
 		opts.Data = data
