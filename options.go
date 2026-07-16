@@ -48,7 +48,7 @@ type Options struct {
 // Option is the functional option type.
 type Option func(*Options)
 
-// newDefaultOptions creates a new default HTTP options.
+// newDefaultOptions creates default HTTP options.
 func newDefaultOptions() *Options {
 	return &Options{
 		ctx:      context.Background(),
@@ -67,7 +67,7 @@ func parseOptions(options ...Option) *Options {
 
 // Context sets the HTTP request context.
 //
-// For outgoing client request, the context controls the entire lifetime of
+// For an outgoing client request, the context controls the entire lifetime of
 // a request and its response: obtaining a connection, sending the request,
 // and reading the response headers and body.
 func Context(ctx context.Context) Option {
@@ -111,7 +111,7 @@ func Headers[T map[string]string | http.Header](headers T) Option {
 	}
 }
 
-// HeaderPairs sets HTTP headers formed by the mapping of key-value pairs.
+// HeaderPairs sets HTTP headers from key-value pairs.
 // The keys should be in canonical form, as returned by
 // [http.CanonicalHeaderKey]. It panics if len(kv) is odd.
 //
@@ -140,8 +140,7 @@ func HeaderPairs(kv ...string) Option {
 	return Headers(headers)
 }
 
-// Params sets the given query parameters into the URL query string.
-// Two types are supported:
+// Params sets the URL query string parameters. Two types are supported:
 //
 // # Type 1: map[string]string
 //
@@ -176,7 +175,7 @@ func Params[T map[string]string | url.Values](params T) Option {
 	}
 }
 
-// ParamPairs sets the query parameters formed by the mapping of key-value pairs.
+// ParamPairs sets query parameters from key-value pairs.
 // It panics if len(kv) is odd.
 //
 // Values with the same key will be merged into a list:
@@ -202,7 +201,7 @@ func ParamPairs(kv ...string) Option {
 	return Params(params)
 }
 
-// Body sets io.Reader to hold request body.
+// Body sets the request body from an [io.Reader].
 func Body(body io.Reader) Option {
 	return func(opts *Options) {
 		opts.Body = body
@@ -210,12 +209,11 @@ func Body(body io.Reader) Option {
 	}
 }
 
-// Data sets data of request body. It also deduces Content-Type based on
-// input data types:
+// Data sets the request body from data, deducing Content-Type by its type:
 //
-// 1. auto deduce by [http.DetectContentType]: io.Reader, []byte
-// 2. "application/json": struct, slice(except []byte), and map
-// 3. "text/plain": others
+//   - io.Reader, []byte: detected via [http.DetectContentType]
+//   - struct, slice (except []byte), map: "application/json"
+//   - otherwise: "text/plain"
 func Data(data any) Option {
 	return func(opts *Options) {
 		opts.Data = data
@@ -223,9 +221,8 @@ func Data(data any) Option {
 	}
 }
 
-// Form sets the given form values into the request body.
-// It also sets the Content-Type as "application/x-www-form-urlencoded".
-// Two types are supported:
+// Form sets the request body from form values, and sets Content-Type to
+// "application/x-www-form-urlencoded". Two types are supported:
 //
 // # Type 1: map[string]string
 //
@@ -261,7 +258,7 @@ func Form[T map[string]string | url.Values](params T) Option {
 	}
 }
 
-// FormPairs sets form values by the mapping of key-value pairs.
+// FormPairs sets form values from key-value pairs.
 // It panics if len(kv) is odd.
 //
 // Values with the same key will be merged into a list:
@@ -287,8 +284,8 @@ func FormPairs(kv ...string) Option {
 	return Form(form)
 }
 
-// JSON marshals the given struct as JSON into the request body.
-// It also sets the Content-Type as "application/json".
+// JSON marshals v as JSON into the request body, and sets Content-Type to
+// "application/json".
 func JSON(v any) Option {
 	return func(opts *Options) {
 		opts.JSON = v
@@ -296,8 +293,8 @@ func JSON(v any) Option {
 	}
 }
 
-// Files sets files to a map of (field, fileHandler).
-// It also sets the Content-Type as "multipart/form-data".
+// Files sets files as a map of field to file handler, and sets Content-Type
+// to "multipart/form-data".
 func Files(files map[string]*os.File) Option {
 	return func(opts *Options) {
 		if opts.Files != nil {
@@ -311,21 +308,21 @@ func Files(files map[string]*os.File) Option {
 	}
 }
 
-// ToText unmarshals HTTP response body to string.
+// ToText captures the response body as text into the string pointed to by v.
 func ToText(v *string) Option {
 	return func(opts *Options) {
 		opts.ToText = v
 	}
 }
 
-// ToJSON unmarshals HTTP response body to given struct as JSON.
+// ToJSON decodes the response body into v as JSON.
 func ToJSON(v any) Option {
 	return func(opts *Options) {
 		opts.ToJSON = v
 	}
 }
 
-// BasicAuth is the option to implement HTTP Basic Auth.
+// BasicAuth enables HTTP Basic Auth with the given username and password.
 func BasicAuth(username, password string) Option {
 	return func(opts *Options) {
 		opts.AuthInfo = &auth.AuthInfo{
@@ -343,8 +340,8 @@ func Timeout(timeout time.Duration) Option {
 	}
 }
 
-// Dump dumps outgoing client request and response to the corresponding
-// input param (req or resp) if not nil.
+// Dump dumps the outgoing request into req and the response into resp,
+// when the corresponding pointer is non-nil.
 //
 // Refer:
 //   - https://pkg.go.dev/net/http/httputil#DumpRequestOut
@@ -356,8 +353,8 @@ func Dump(req, resp *string) Option {
 	}
 }
 
-// Interceptor prepends an interceptor to environment interceptors for current
-// request only.
+// Interceptor prepends an interceptor to the client interceptors for the
+// current request only.
 func Interceptor(interceptor InterceptorFunc) Option {
 	return func(opts *Options) {
 		opts.Interceptor = interceptor
