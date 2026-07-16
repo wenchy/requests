@@ -1,6 +1,6 @@
-// Package requests is an elegant and simple HTTP library for golang, built for human beings.
+// Package requests is an elegant and simple HTTP library for Go, built for human beings.
 //
-// This package mimics the implementation of the classic Python package Requests(https://requests.readthedocs.io/)
+// It mimics the classic Python Requests library (https://requests.readthedocs.io/).
 package requests
 
 import (
@@ -16,7 +16,7 @@ import (
 	"github.com/Wenchy/requests/internal/auth"
 )
 
-// Request is a wrapper of http.Request.
+// Request wraps [http.Request].
 type Request struct {
 	*http.Request
 	opts *Options
@@ -28,7 +28,7 @@ func (r *Request) Bytes() []byte {
 	return r.body
 }
 
-// Text parses the HTTP request body as string.
+// Text returns the HTTP request body as a string.
 func (r *Request) Text() string {
 	return string(r.body)
 }
@@ -67,7 +67,7 @@ func newRequest(ctx context.Context, method, url string, opts *Options, body []b
 
 // request sends an HTTP request.
 func request(c *Client, method, url string, opts *Options) (*Response, error) {
-	// NOTE: get the body size from io.Reader. It is costy for large body.
+	// NOTE: reading the body into memory is costly for large bodies.
 	body := bytes.NewBuffer(nil)
 	if opts.Body != nil {
 		_, err := io.Copy(body, opts.Body)
@@ -79,8 +79,7 @@ func request(c *Client, method, url string, opts *Options) (*Response, error) {
 	return c.request(method, url, opts, body.Bytes())
 }
 
-// requestData sends an HTTP request to the specified URL, with raw string
-// as the request body.
+// requestData sends an HTTP request with opts.Data as the body.
 func requestData(c *Client, method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	if opts.Data != nil {
@@ -98,8 +97,7 @@ func requestData(c *Client, method, url string, opts *Options) (*Response, error
 	return c.request(method, url, opts, body.Bytes())
 }
 
-// requestForm sends an HTTP request to the specified URL, with form's keys and
-// values URL-encoded as the request body.
+// requestForm sends an HTTP request with form values URL-encoded as the body.
 func requestForm(c *Client, method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	if opts.Form != nil {
@@ -114,7 +112,7 @@ func requestForm(c *Client, method, url string, opts *Options) (*Response, error
 	return c.request(method, url, opts, body.Bytes())
 }
 
-// requestJSON sends an HTTP request, and encode request body as json.
+// requestJSON sends an HTTP request with opts.JSON encoded as JSON in the body.
 func requestJSON(c *Client, method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	if opts.JSON != nil {
@@ -132,7 +130,7 @@ func requestJSON(c *Client, method, url string, opts *Options) (*Response, error
 	return c.request(method, url, opts, body.Bytes())
 }
 
-// requestFiles sends an uploading request for multiple multipart-encoded files.
+// requestFiles sends an HTTP request with files multipart-encoded in the body.
 func requestFiles(c *Client, method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	bodyWriter := multipart.NewWriter(body)
@@ -182,7 +180,7 @@ var (
 	formContentType = "application/x-www-form-urlencoded"
 )
 
-// deduceContentTypeAndBody parses content type and request body from request data
+// deduceContentTypeAndBody deduces the Content-Type and body from data.
 func deduceContentTypeAndBody(data any) (string, []byte, error) {
 	if reader, ok := data.(io.Reader); ok {
 		body, err := io.ReadAll(reader)

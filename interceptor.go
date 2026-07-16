@@ -4,13 +4,11 @@ import (
 	"context"
 )
 
-// Do is called by Interceptor to complete HTTP requests.
+// Do is called by an interceptor to complete the HTTP request.
 type Do func(ctx context.Context, r *Request) (*Response, error)
 
-// InterceptorFunc provides a hook to intercept the execution of an HTTP request
-// invocation. When an interceptor(s) is set, requests delegates all HTTP
-// client invocations to the interceptor, and it is the responsibility of the
-// interceptor to call do to complete the processing of the HTTP request.
+// InterceptorFunc intercepts an HTTP request. When set, the client delegates
+// the request to the interceptor, which must call do to complete it.
 type InterceptorFunc func(ctx context.Context, r *Request, do Do) (*Response, error)
 
 // ChainInterceptors chains multiple interceptors into one.

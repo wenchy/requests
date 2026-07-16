@@ -12,7 +12,7 @@ import (
 	"github.com/Wenchy/requests/internal/auth"
 )
 
-// Options defines all optional parameters for HTTP request.
+// Options defines the optional parameters for an HTTP request.
 type Options struct {
 	ctx context.Context
 

@@ -19,14 +19,14 @@ func WithTimeout(timeout time.Duration) ClientOption {
 	}
 }
 
-// WithTransport specifies a transport for client.
+// WithTransport specifies the transport for the client.
 func WithTransport(transport http.RoundTripper) ClientOption {
 	return func(c *Client) {
 		c.client.Transport = transport
 	}
 }
 
-// WithInterceptor specifies an interceptor for client.
+// WithInterceptor specifies the interceptor for the client.
 // You can use [ChainInterceptors] to chain multiple interceptors into one.
 func WithInterceptor(interceptor InterceptorFunc) ClientOption {
 	return func(c *Client) {
@@ -40,7 +40,7 @@ type Client struct {
 	interceptor InterceptorFunc
 }
 
-// NewClient creates a new client to serve HTTP requests.
+// NewClient creates a new Client for sending HTTP requests.
 func NewClient(setters ...ClientOption) *Client {
 	client := newDefaultClient()
 	for _, setter := range setters {
@@ -49,10 +49,10 @@ func NewClient(setters ...ClientOption) *Client {
 	return client
 }
 
-// request is the common func to send an HTTP request.
+// request sends an HTTP request via the client.
 func (c *Client) request(method, url string, opts *Options, body []byte) (*Response, error) {
 	ctx := opts.ctx
-	if opts.Timeout > 0 { // ctx with timeout if specified
+	if opts.Timeout > 0 { // apply per-request timeout
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
 		defer cancel()
@@ -85,8 +85,7 @@ func (c *Client) request(method, url string, opts *Options, body []byte) (*Respo
 // do sends an HTTP request and returns an HTTP response, following policy
 // (such as redirects, cookies, auth) as configured on the client.
 func (c *Client) do(_ context.Context, r *Request) (*Response, error) {
-	// If the returned error is nil, the Response will contain
-	// a non-nil Body which the user is expected to close.
+	// The response body is read and closed by newResponse.
 	resp, err := c.client.Do(r.Request)
 	if err != nil {
 		return nil, err
@@ -102,7 +101,7 @@ func (c *Client) do(_ context.Context, r *Request) (*Response, error) {
 	return newResponse(resp, r.opts)
 }
 
-// Get sends an HTTP request with GET method.
+// Get sends an HTTP GET request.
 //
 // On error, any Response can be ignored. A non-nil Response with a
 // non-nil error only occurs when Response.StatusCode() is not 2xx.
@@ -115,7 +114,7 @@ func (c *Client) Post(url string, options ...Option) (*Response, error) {
 	return c.callMethod(http.MethodPost, url, options...)
 }
 
-// Put sends an HTTP request with PUT method.
+// Put sends an HTTP PUT request.
 //
 // On error, any Response can be ignored. A non-nil Response with a
 // non-nil error only occurs when Response.StatusCode() is not 2xx.
@@ -123,7 +122,7 @@ func (c *Client) Put(url string, options ...Option) (*Response, error) {
 	return c.callMethod(http.MethodPut, url, options...)
 }
 
-// Patch sends an HTTP request with PATCH method.
+// Patch sends an HTTP PATCH request.
 //
 // On error, any Response can be ignored. A non-nil Response with a
 // non-nil error only occurs when Response.StatusCode() is not 2xx.
@@ -131,7 +130,7 @@ func (c *Client) Patch(url string, options ...Option) (*Response, error) {
 	return c.callMethod(http.MethodPatch, url, options...)
 }
 
-// Delete sends an HTTP request with DELETE method.
+// Delete sends an HTTP DELETE request.
 //
 // On error, any Response can be ignored. A non-nil Response with a
 // non-nil error only occurs when Response.StatusCode() is not 2xx.
