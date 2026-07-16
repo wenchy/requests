@@ -209,11 +209,16 @@ func Body(body io.Reader) Option {
 	}
 }
 
-// Data sets the request body from data, deducing Content-Type by its type:
+// Data sets the request body from data, deducing Content-Type from its type:
 //
-//   - io.Reader, []byte: detected via [http.DetectContentType]
-//   - struct, slice (except []byte), map: "application/json"
-//   - otherwise: "text/plain"
+//   - io.Reader (e.g. *bytes.Buffer): read and detected via [http.DetectContentType]
+//   - []byte or *[]byte: detected via [http.DetectContentType]
+//   - struct, map, slice (except []byte): "application/json"
+//   - otherwise: "text/plain", formatted with %v
+//
+// Non-reader pointers are dereferenced before the kind is determined, so
+// *struct and *[]byte behave like their pointed-to values. A typed nil
+// pointer such as (*T)(nil) falls into the last case and is sent as "<nil>".
 func Data(data any) Option {
 	return func(opts *Options) {
 		opts.Data = data
