@@ -79,19 +79,22 @@ func request(c *Client, method, url string, opts *Options) (*Response, error) {
 	return c.request(method, url, opts, body.Bytes())
 }
 
-// requestData sends an HTTP request with opts.Data as the body.
+// requestData sends an HTTP request with opts.Data as the body. It deduces
+// Content-Type only when the caller has not set one.
 func requestData(c *Client, method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	if opts.Data != nil {
-		contentType, bytes, err := deduceContentTypeAndBody(opts.Data)
+		dataBytes, err := dataToBody(opts.Data)
 		if err != nil {
 			return nil, err
 		}
-		_, err = body.Write(bytes)
-		if err != nil {
+		// Deduce Content-Type only when the caller has not set one.
+		if opts.Headers.Get("Content-Type") == "" {
+			opts.Headers.Set("Content-Type", deduceContentType(opts.Data, dataBytes))
+		}
+		if _, err = body.Write(dataBytes); err != nil {
 			return nil, err
 		}
-		setContentTypeIfAbsent(opts.Headers, contentType)
 	}
 	opts.Body = body
 	return c.request(method, url, opts, body.Bytes())
@@ -180,38 +183,59 @@ var (
 	formContentType = "application/x-www-form-urlencoded"
 )
 
-// setContentTypeIfAbsent sets Content-Type only when the caller has not
-// already provided one, so an explicit Content-Type header takes precedence.
-func setContentTypeIfAbsent(h http.Header, contentType string) {
-	if h.Get("Content-Type") == "" {
-		h.Set("Content-Type", contentType)
-	}
-}
-
-// deduceContentTypeAndBody deduces the Content-Type and body from data.
-func deduceContentTypeAndBody(data any) (string, []byte, error) {
+// dataToBody encodes data into request body bytes. It is the shared body
+// production used whether or not Content-Type is deduced.
+func dataToBody(data any) ([]byte, error) {
 	if reader, ok := data.(io.Reader); ok {
-		body, err := io.ReadAll(reader)
-		return http.DetectContentType(body), body, err
+		return io.ReadAll(reader)
 	}
 	bodyValue := reflect.Indirect(reflect.ValueOf(data))
 	// A typed nil pointer (e.g. (*MyStruct)(nil)) reaches here as a non-nil
 	// interface but yields an invalid reflect.Value after Indirect. Guard
 	// against it so bodyValue.Interface() below does not panic.
 	if !bodyValue.IsValid() {
-		return plainTextType, fmt.Appendf(nil, "%v", data), nil
+		return fmt.Appendf(nil, "%v", data), nil
 	}
 	switch bodyValue.Kind() {
 	case reflect.Struct, reflect.Map, reflect.Slice:
-		// check slice here to differentiate between any slice vs byte slice.
 		// Assert against the (possibly dereferenced) bodyValue so that *[]byte
 		// is treated as raw bytes instead of being JSON/base64-marshaled.
 		if body, ok := bodyValue.Interface().([]byte); ok {
-			return http.DetectContentType(body), body, nil
+			return body, nil
 		}
-		body, err := json.Marshal(data)
-		return jsonContentType, body, err
+		return json.Marshal(data)
 	default:
-		return plainTextType, fmt.Appendf(nil, "%v", bodyValue.Interface()), nil
+		return fmt.Appendf(nil, "%v", bodyValue.Interface()), nil
 	}
+}
+
+// deduceContentType deduces the Content-Type for data from its type and the
+// already-encoded body. It is only called when the caller has not set one.
+func deduceContentType(data any, body []byte) string {
+	if _, ok := data.(io.Reader); ok {
+		return http.DetectContentType(body)
+	}
+	bodyValue := reflect.Indirect(reflect.ValueOf(data))
+	if !bodyValue.IsValid() {
+		return plainTextType
+	}
+	switch bodyValue.Kind() {
+	case reflect.Struct, reflect.Map, reflect.Slice:
+		// []byte (and *[]byte, after Indirect) is detected as raw bytes.
+		if _, ok := bodyValue.Interface().([]byte); ok {
+			return http.DetectContentType(body)
+		}
+		return jsonContentType
+	default:
+		return plainTextType
+	}
+}
+
+// deduceContentTypeAndBody deduces the Content-Type and body from data.
+func deduceContentTypeAndBody(data any) (string, []byte, error) {
+	body, err := dataToBody(data)
+	if err != nil {
+		return "", nil, err
+	}
+	return deduceContentType(data, body), body, nil
 }
