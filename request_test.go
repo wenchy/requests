@@ -979,17 +979,17 @@ func TestContentTypeOverride(t *testing.T) {
 			want: "application/xml",
 		},
 		{
-			name:    "json deduces content type",
+			name:    "json sets content type",
 			options: []Option{JSON(map[string]string{"k": "v"})},
 			want:    jsonContentType,
 		},
 		{
-			name: "json respects caller content type",
+			name: "json forces content type (caller ignored)",
 			options: []Option{
 				Headers(map[string]string{"Content-Type": "application/xml"}),
 				JSON(map[string]string{"k": "v"}),
 			},
-			want: "application/xml",
+			want: jsonContentType,
 		},
 		{
 			name: "form forces content type (caller ignored)",

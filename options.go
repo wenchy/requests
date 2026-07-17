@@ -292,8 +292,10 @@ func FormPairs(kv ...string) Option {
 	return Form(form)
 }
 
-// JSON marshals v as JSON into the request body. It sets Content-Type to
-// "application/json" unless the caller has already set one.
+// JSON marshals v as JSON into the request body, and forces Content-Type to
+// "application/json" (overriding any caller value). For a custom JSON-based
+// media type (e.g. "application/ld+json"), use [Data] with an explicit
+// Content-Type instead.
 func JSON(v any) Option {
 	return func(opts *Options) {
 		opts.JSON = v

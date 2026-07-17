@@ -125,7 +125,7 @@ func requestJSON(c *Client, method, url string, opts *Options) (*Response, error
 			return nil, err
 		}
 	}
-	setContentTypeIfAbsent(opts.Headers, jsonContentType)
+	opts.Headers.Set("Content-Type", jsonContentType)
 	opts.Body = body
 	return c.request(method, url, opts, body.Bytes())
 }
