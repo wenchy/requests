@@ -145,18 +145,18 @@ if err != nil {
 ### POST a raw body with an explicit Content-Type
 
 `Body` sends a raw/streamed body and sets no Content-Type; declare one with
-`Headers` when the server expects a specific type:
+`HeaderPairs` when the server expects a specific type:
 
 ```go
 // application/xml
 r, err := requests.Post("http://example.com",
         requests.Body(strings.NewReader(xmlStr)),
-        requests.Headers(map[string]string{"Content-Type": "application/xml"}))
+        requests.HeaderPairs("Content-Type", "application/xml"))
 
 // application/octet-stream
 r, err = requests.Post("http://example.com",
         requests.Data([]byte(binaryData)),
-        requests.Headers(map[string]string{"Content-Type": "application/octet-stream"}))
+        requests.HeaderPairs("Content-Type", "application/octet-stream"))
 ```
 
 `Data` also deduces a Content-Type from the data type when none is set, but

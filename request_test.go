@@ -973,7 +973,7 @@ func TestContentTypeOverride(t *testing.T) {
 		{
 			name: "data respects caller content type",
 			options: []Option{
-				Headers(map[string]string{"Content-Type": "application/xml"}),
+				HeaderPairs("Content-Type", "application/xml"),
 				Data(map[string]string{"k": "v"}),
 			},
 			want: "application/xml",
@@ -986,7 +986,7 @@ func TestContentTypeOverride(t *testing.T) {
 		{
 			name: "json forces content type (caller ignored)",
 			options: []Option{
-				Headers(map[string]string{"Content-Type": "application/xml"}),
+				HeaderPairs("Content-Type", "application/xml"),
 				JSON(map[string]string{"k": "v"}),
 			},
 			want: jsonContentType,
@@ -994,7 +994,7 @@ func TestContentTypeOverride(t *testing.T) {
 		{
 			name: "form forces content type (caller ignored)",
 			options: []Option{
-				Headers(map[string]string{"Content-Type": "application/xml"}),
+				HeaderPairs("Content-Type", "application/xml"),
 				Form(map[string]string{"k": "v"}),
 			},
 			want: formContentType,
