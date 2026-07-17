@@ -91,7 +91,7 @@ func requestData(c *Client, method, url string, opts *Options) (*Response, error
 		if err != nil {
 			return nil, err
 		}
-		opts.Headers.Set("Content-Type", contentType)
+		setContentTypeIfAbsent(opts.Headers, contentType)
 	}
 	opts.Body = body
 	return c.request(method, url, opts, body.Bytes())
@@ -125,7 +125,7 @@ func requestJSON(c *Client, method, url string, opts *Options) (*Response, error
 			return nil, err
 		}
 	}
-	opts.Headers.Set("Content-Type", jsonContentType)
+	setContentTypeIfAbsent(opts.Headers, jsonContentType)
 	opts.Body = body
 	return c.request(method, url, opts, body.Bytes())
 }
@@ -179,6 +179,14 @@ var (
 	jsonContentType = "application/json"
 	formContentType = "application/x-www-form-urlencoded"
 )
+
+// setContentTypeIfAbsent sets Content-Type only when the caller has not
+// already provided one, so an explicit Content-Type header takes precedence.
+func setContentTypeIfAbsent(h http.Header, contentType string) {
+	if h.Get("Content-Type") == "" {
+		h.Set("Content-Type", contentType)
+	}
+}
 
 // deduceContentTypeAndBody deduces the Content-Type and body from data.
 func deduceContentTypeAndBody(data any) (string, []byte, error) {

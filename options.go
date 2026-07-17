@@ -216,9 +216,11 @@ func Body(body io.Reader) Option {
 //   - struct, map, slice (except []byte): "application/json"
 //   - otherwise: "text/plain", formatted with %v
 //
-// Non-reader pointers are dereferenced before the kind is determined, so
-// *struct and *[]byte behave like their pointed-to values. A typed nil
-// pointer such as (*T)(nil) falls into the last case and is sent as "<nil>".
+// An explicit Content-Type set via [Headers] or [HeaderPairs] takes
+// precedence over the deduced value. Non-reader pointers are dereferenced
+// before the kind is determined, so *struct and *[]byte behave like their
+// pointed-to values. A typed nil pointer such as (*T)(nil) falls into the
+// last case and is sent as "<nil>".
 func Data(data any) Option {
 	return func(opts *Options) {
 		opts.Data = data
@@ -226,8 +228,9 @@ func Data(data any) Option {
 	}
 }
 
-// Form sets the request body from form values, and sets Content-Type to
-// "application/x-www-form-urlencoded". Two types are supported:
+// Form sets the request body from form values, and forces Content-Type to
+// "application/x-www-form-urlencoded" (overriding any caller value). Two
+// types are supported:
 //
 // # Type 1: map[string]string
 //
@@ -289,8 +292,8 @@ func FormPairs(kv ...string) Option {
 	return Form(form)
 }
 
-// JSON marshals v as JSON into the request body, and sets Content-Type to
-// "application/json".
+// JSON marshals v as JSON into the request body. It sets Content-Type to
+// "application/json" unless the caller has already set one.
 func JSON(v any) Option {
 	return func(opts *Options) {
 		opts.JSON = v
@@ -298,8 +301,9 @@ func JSON(v any) Option {
 	}
 }
 
-// Files sets files as a map of field to file handler, and sets Content-Type
-// to "multipart/form-data".
+// Files sets files as a map of field to file handler, and forces
+// Content-Type to "multipart/form-data" with the multipart boundary
+// (overriding any caller value).
 func Files(files map[string]*os.File) Option {
 	return func(opts *Options) {
 		if opts.Files != nil {

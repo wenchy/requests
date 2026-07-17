@@ -951,3 +951,61 @@ func Test_deduceContentTypeAndBody(t *testing.T) {
 		})
 	}
 }
+
+func TestContentTypeOverride(t *testing.T) {
+	var gotContentType string
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotContentType = r.Header.Get("Content-Type")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer testServer.Close()
+
+	tests := []struct {
+		name    string
+		options []Option
+		want    string
+	}{
+		{
+			name:    "data deduces content type",
+			options: []Option{Data(map[string]string{"k": "v"})},
+			want:    jsonContentType,
+		},
+		{
+			name: "data respects caller content type",
+			options: []Option{
+				Headers(map[string]string{"Content-Type": "application/xml"}),
+				Data(map[string]string{"k": "v"}),
+			},
+			want: "application/xml",
+		},
+		{
+			name:    "json deduces content type",
+			options: []Option{JSON(map[string]string{"k": "v"})},
+			want:    jsonContentType,
+		},
+		{
+			name: "json respects caller content type",
+			options: []Option{
+				Headers(map[string]string{"Content-Type": "application/xml"}),
+				JSON(map[string]string{"k": "v"}),
+			},
+			want: "application/xml",
+		},
+		{
+			name: "form forces content type (caller ignored)",
+			options: []Option{
+				Headers(map[string]string{"Content-Type": "application/xml"}),
+				Form(map[string]string{"k": "v"}),
+			},
+			want: formContentType,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotContentType = ""
+			_, err := Post(testServer.URL, tt.options...)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, gotContentType)
+		})
+	}
+}
