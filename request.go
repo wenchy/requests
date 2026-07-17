@@ -1,6 +1,6 @@
-// Package requests is an elegant and simple HTTP library for golang, built for human beings.
+// Package requests is an elegant and simple HTTP library for Go, built for human beings.
 //
-// This package mimics the implementation of the classic Python package Requests(https://requests.readthedocs.io/)
+// It mimics the classic Python Requests library (https://requests.readthedocs.io/).
 package requests
 
 import (
@@ -16,7 +16,7 @@ import (
 	"github.com/Wenchy/requests/internal/auth"
 )
 
-// Request is a wrapper of http.Request.
+// Request wraps [http.Request].
 type Request struct {
 	*http.Request
 	opts *Options
@@ -28,7 +28,7 @@ func (r *Request) Bytes() []byte {
 	return r.body
 }
 
-// Text parses the HTTP request body as string.
+// Text returns the HTTP request body as a string.
 func (r *Request) Text() string {
 	return string(r.body)
 }
@@ -67,7 +67,7 @@ func newRequest(ctx context.Context, method, url string, opts *Options, body []b
 
 // request sends an HTTP request.
 func request(c *Client, method, url string, opts *Options) (*Response, error) {
-	// NOTE: get the body size from io.Reader. It is costy for large body.
+	// NOTE: reading the body into memory is costly for large bodies.
 	body := bytes.NewBuffer(nil)
 	if opts.Body != nil {
 		_, err := io.Copy(body, opts.Body)
@@ -79,27 +79,28 @@ func request(c *Client, method, url string, opts *Options) (*Response, error) {
 	return c.request(method, url, opts, body.Bytes())
 }
 
-// requestData sends an HTTP request to the specified URL, with raw string
-// as the request body.
+// requestData sends an HTTP request with opts.Data as the body. It deduces
+// Content-Type only when the caller has not set one.
 func requestData(c *Client, method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	if opts.Data != nil {
-		contentType, bytes, err := deduceContentTypeAndBody(opts.Data)
+		dataBytes, err := dataToBody(opts.Data)
 		if err != nil {
 			return nil, err
 		}
-		_, err = body.Write(bytes)
-		if err != nil {
+		// Deduce Content-Type only when the caller has not set one.
+		if opts.Headers.Get("Content-Type") == "" {
+			opts.Headers.Set("Content-Type", deduceContentType(opts.Data, dataBytes))
+		}
+		if _, err = body.Write(dataBytes); err != nil {
 			return nil, err
 		}
-		opts.Headers.Set("Content-Type", contentType)
 	}
 	opts.Body = body
 	return c.request(method, url, opts, body.Bytes())
 }
 
-// requestForm sends an HTTP request to the specified URL, with form's keys and
-// values URL-encoded as the request body.
+// requestForm sends an HTTP request with form values URL-encoded as the body.
 func requestForm(c *Client, method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	if opts.Form != nil {
@@ -114,7 +115,7 @@ func requestForm(c *Client, method, url string, opts *Options) (*Response, error
 	return c.request(method, url, opts, body.Bytes())
 }
 
-// requestJSON sends an HTTP request, and encode request body as json.
+// requestJSON sends an HTTP request with opts.JSON encoded as JSON in the body.
 func requestJSON(c *Client, method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	if opts.JSON != nil {
@@ -132,7 +133,7 @@ func requestJSON(c *Client, method, url string, opts *Options) (*Response, error
 	return c.request(method, url, opts, body.Bytes())
 }
 
-// requestFiles sends an uploading request for multiple multipart-encoded files.
+// requestFiles sends an HTTP request with files multipart-encoded in the body.
 func requestFiles(c *Client, method, url string, opts *Options) (*Response, error) {
 	body := bytes.NewBuffer(nil)
 	bodyWriter := multipart.NewWriter(body)
@@ -182,30 +183,59 @@ var (
 	formContentType = "application/x-www-form-urlencoded"
 )
 
-// deduceContentTypeAndBody parses content type and request body from request data
-func deduceContentTypeAndBody(data any) (string, []byte, error) {
+// dataToBody encodes data into request body bytes. It is the shared body
+// production used whether or not Content-Type is deduced.
+func dataToBody(data any) ([]byte, error) {
 	if reader, ok := data.(io.Reader); ok {
-		body, err := io.ReadAll(reader)
-		return http.DetectContentType(body), body, err
+		return io.ReadAll(reader)
 	}
 	bodyValue := reflect.Indirect(reflect.ValueOf(data))
 	// A typed nil pointer (e.g. (*MyStruct)(nil)) reaches here as a non-nil
 	// interface but yields an invalid reflect.Value after Indirect. Guard
 	// against it so bodyValue.Interface() below does not panic.
 	if !bodyValue.IsValid() {
-		return plainTextType, fmt.Appendf(nil, "%v", data), nil
+		return fmt.Appendf(nil, "%v", data), nil
 	}
 	switch bodyValue.Kind() {
 	case reflect.Struct, reflect.Map, reflect.Slice:
-		// check slice here to differentiate between any slice vs byte slice.
 		// Assert against the (possibly dereferenced) bodyValue so that *[]byte
 		// is treated as raw bytes instead of being JSON/base64-marshaled.
 		if body, ok := bodyValue.Interface().([]byte); ok {
-			return http.DetectContentType(body), body, nil
+			return body, nil
 		}
-		body, err := json.Marshal(data)
-		return jsonContentType, body, err
+		return json.Marshal(data)
 	default:
-		return plainTextType, fmt.Appendf(nil, "%v", bodyValue.Interface()), nil
+		return fmt.Appendf(nil, "%v", bodyValue.Interface()), nil
 	}
+}
+
+// deduceContentType deduces the Content-Type for data from its type and the
+// already-encoded body. It is only called when the caller has not set one.
+func deduceContentType(data any, body []byte) string {
+	if _, ok := data.(io.Reader); ok {
+		return http.DetectContentType(body)
+	}
+	bodyValue := reflect.Indirect(reflect.ValueOf(data))
+	if !bodyValue.IsValid() {
+		return plainTextType
+	}
+	switch bodyValue.Kind() {
+	case reflect.Struct, reflect.Map, reflect.Slice:
+		// []byte (and *[]byte, after Indirect) is detected as raw bytes.
+		if _, ok := bodyValue.Interface().([]byte); ok {
+			return http.DetectContentType(body)
+		}
+		return jsonContentType
+	default:
+		return plainTextType
+	}
+}
+
+// deduceContentTypeAndBody deduces the Content-Type and body from data.
+func deduceContentTypeAndBody(data any) (string, []byte, error) {
+	body, err := dataToBody(data)
+	if err != nil {
+		return "", nil, err
+	}
+	return deduceContentType(data, body), body, nil
 }

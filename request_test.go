@@ -951,3 +951,87 @@ func Test_deduceContentTypeAndBody(t *testing.T) {
 		})
 	}
 }
+
+func TestContentTypeOverride(t *testing.T) {
+	var gotContentType string
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotContentType = r.Header.Get("Content-Type")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer testServer.Close()
+
+	tests := []struct {
+		name    string
+		options []Option
+		want    string
+	}{
+		{
+			name:    "data deduces content type",
+			options: []Option{Data(map[string]string{"k": "v"})},
+			want:    jsonContentType,
+		},
+		{
+			name: "data respects caller content type",
+			options: []Option{
+				HeaderPairs("Content-Type", "application/xml"),
+				Data(map[string]string{"k": "v"}),
+			},
+			want: "application/xml",
+		},
+		{
+			name:    "json sets content type",
+			options: []Option{JSON(map[string]string{"k": "v"})},
+			want:    jsonContentType,
+		},
+		{
+			name: "json forces content type (caller ignored)",
+			options: []Option{
+				HeaderPairs("Content-Type", "application/xml"),
+				JSON(map[string]string{"k": "v"}),
+			},
+			want: jsonContentType,
+		},
+		{
+			name: "form forces content type (caller ignored)",
+			options: []Option{
+				HeaderPairs("Content-Type", "application/xml"),
+				Form(map[string]string{"k": "v"}),
+			},
+			want: formContentType,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotContentType = ""
+			_, err := Post(testServer.URL, tt.options...)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, gotContentType)
+		})
+	}
+}
+
+func TestDataStringVsBytesEquivalent(t *testing.T) {
+	// Data(string) and Data([]byte) with the same content must
+	// produce the same HTTP request (Content-Type and body).
+	content := `{"group":1,"version":"v1.0"}`
+	var gotContentType string
+	var gotBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotContentType = r.Header.Get("Content-Type")
+		gotBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	capture := func(opt Option) (string, string) {
+		gotContentType, gotBody = "", nil
+		_, err := Post(srv.URL, opt)
+		assert.NoError(t, err)
+		return gotContentType, string(gotBody)
+	}
+
+	ct1, body1 := capture(Data(content))
+	ct2, body2 := capture(Data([]byte(content)))
+	assert.Equal(t, ct1, ct2, "Content-Type differs between Data(string) and Data([]byte)")
+	assert.Equal(t, body1, body2, "body differs between Data(string) and Data([]byte)")
+}

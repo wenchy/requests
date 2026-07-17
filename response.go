@@ -7,16 +7,15 @@ import (
 	"net/http"
 )
 
-// Response is a wrapper of http.Response.
+// Response wraps [http.Response].
 type Response struct {
 	*http.Response
 	body []byte // auto filled from Response.Body
 }
 
-// newResponse reads and closes Response.Body. Then check the HTTP status
-// in Response.StatusCode. It will return an error with status and text
-// body embedded if status code is not 2xx, and none-nil response is also
-// returned.
+// newResponse reads and closes the response body. It returns a non-nil
+// response along with an error containing the status and text body when
+// the status code is not 2xx.
 func newResponse(resp *http.Response, opts *Options) (*Response, error) {
 	r := &Response{
 		Response: resp,
@@ -24,8 +23,7 @@ func newResponse(resp *http.Response, opts *Options) (*Response, error) {
 	if err := r.readAndCloseBody(); err != nil {
 		return nil, err
 	}
-	// return error with status and text body embedded if status code
-	// is not 2xx, and response is also returned.
+	// non-2xx: return the response along with an error.
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		// TODO: only extracts 128 bytes from body.
 		return r, errors.New(resp.Status + " " + r.Text())
@@ -41,7 +39,7 @@ func newResponse(resp *http.Response, opts *Options) (*Response, error) {
 	return r, nil
 }
 
-// readAndCloseBody drains all the HTTP response body stream and then closes it.
+// readAndCloseBody drains and closes the response body.
 func (r *Response) readAndCloseBody() (err error) {
 	defer func() {
 		err1 := r.Response.Body.Close()
@@ -51,9 +49,7 @@ func (r *Response) readAndCloseBody() (err error) {
 	return err
 }
 
-// StatusCode returns status code of HTTP response.
-//
-// NOTE: It returns -1 if response is nil.
+// StatusCode returns the HTTP response status code, or -1 if the response is nil.
 func (r *Response) StatusCode() int {
 	if r == nil || r.Response == nil {
 		// return special status code -1 which is not registered with IANA.
@@ -62,16 +58,9 @@ func (r *Response) StatusCode() int {
 	return r.Response.StatusCode
 }
 
-// StatusText returns a text for the HTTP status code.
-//
-// NOTE:
-//   - It returns "<nil>" if response is nil.
-//   - It returns the empty string if the code is unknown.
-//
-// e.g. "OK"
+// StatusText returns the HTTP status text, or "<nil>" if the response is nil.
 func (r *Response) StatusText() string {
 	if r == nil || r.Response == nil {
-		// return special status code -1 which is not registered with IANA.
 		return "<nil>"
 	}
 	return r.Response.Status
@@ -82,12 +71,12 @@ func (r *Response) Bytes() []byte {
 	return r.body
 }
 
-// Text parses the HTTP response body as string.
+// Text returns the HTTP response body as a string.
 func (r *Response) Text() string {
 	return string(r.body)
 }
 
-// JSON decodes the HTTP response body as JSON format.
+// JSON decodes the HTTP response body into v as JSON.
 func (r *Response) JSON(v any) error {
 	return json.Unmarshal(r.body, v)
 }

@@ -29,7 +29,7 @@ func getDefaultClient() *Client {
 	return defaultClient
 }
 
-// InitDefaultClient initializes the default client with given options.
+// InitDefaultClient initializes the default client with the given options.
 func InitDefaultClient(setters ...ClientOption) {
 	client := getDefaultClient()
 	for _, setter := range setters {
