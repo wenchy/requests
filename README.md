@@ -142,6 +142,27 @@ if err != nil {
 </tr>
 <tr><td>15+ lines</td><td>4+ lines</td></tr></tbody></table>
 
+### POST a raw body with an explicit Content-Type
+
+`Body` sends a raw/streamed body and sets no Content-Type; declare one with
+`Headers` when the server expects a specific type:
+
+```go
+// application/xml
+r, err := requests.Post("http://example.com",
+        requests.Body(strings.NewReader(xmlStr)),
+        requests.Headers(map[string]string{"Content-Type": "application/xml"}))
+
+// application/octet-stream
+r, err = requests.Post("http://example.com",
+        requests.Data([]byte(binaryData)),
+        requests.Headers(map[string]string{"Content-Type": "application/octet-stream"}))
+```
+
+`Data` also deduces a Content-Type from the data type when none is set, but
+the deduction is a heuristic (e.g. XML is detected as `text/xml`, not
+`application/xml`), so set it explicitly when the exact type matters.
+
 ### GET a JSON object with context
 
 <table>

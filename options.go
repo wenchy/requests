@@ -201,7 +201,10 @@ func ParamPairs(kv ...string) Option {
 	return Params(params)
 }
 
-// Body sets the request body from an [io.Reader].
+// Body sets the request body from an [io.Reader]. It does not set
+// Content-Type and streams the reader as-is; declare a Content-Type via
+// [Headers] or [HeaderPairs] when the server expects one (e.g.
+// "application/xml", "text/html", "application/octet-stream").
 func Body(body io.Reader) Option {
 	return func(opts *Options) {
 		opts.Body = body
@@ -209,18 +212,24 @@ func Body(body io.Reader) Option {
 	}
 }
 
-// Data sets the request body from data, deducing Content-Type from its type:
+// Data sets the request body from data. Content-Type is resolved in two
+// cases (see issue #48): if the caller sets it via [Headers] or
+// [HeaderPairs], that value is used as-is; otherwise it is deduced from
+// data's type:
 //
 //   - io.Reader (e.g. *bytes.Buffer): read and detected via [http.DetectContentType]
 //   - []byte or *[]byte: detected via [http.DetectContentType]
 //   - struct, map, slice (except []byte): "application/json"
 //   - otherwise: "text/plain", formatted with %v
 //
-// An explicit Content-Type set via [Headers] or [HeaderPairs] takes
-// precedence over the deduced value. Non-reader pointers are dereferenced
-// before the kind is determined, so *struct and *[]byte behave like their
-// pointed-to values. A typed nil pointer such as (*T)(nil) falls into the
-// last case and is sent as "<nil>".
+// The deduction is a heuristic and may be imprecise — for example XML is
+// detected as "text/xml" (or "text/plain" without an XML declaration), not
+// "application/xml" — so set Content-Type explicitly when the exact type
+// matters.
+//
+// Non-reader pointers are dereferenced before the kind is determined, so
+// *struct and *[]byte behave like their pointed-to values. A typed nil
+// pointer such as (*T)(nil) falls into the last case and is sent as "<nil>".
 func Data(data any) Option {
 	return func(opts *Options) {
 		opts.Data = data

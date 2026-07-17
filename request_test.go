@@ -1009,3 +1009,29 @@ func TestContentTypeOverride(t *testing.T) {
 		})
 	}
 }
+
+func TestDataStringVsBytesEquivalent(t *testing.T) {
+	// Issue #48: Data(string) and Data([]byte) with the same content must
+	// produce the same HTTP request (Content-Type and body).
+	content := `{"group":1,"version":"v1.0"`
+	var gotCT string
+	var gotBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotCT = r.Header.Get("Content-Type")
+		gotBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	capture := func(opt Option) (string, string) {
+		gotCT, gotBody = "", nil
+		_, err := Post(srv.URL, opt)
+		assert.NoError(t, err)
+		return gotCT, string(gotBody)
+	}
+
+	ct1, body1 := capture(Data(content))
+	ct2, body2 := capture(Data([]byte(content)))
+	assert.Equal(t, ct1, ct2, "Content-Type differs between Data(string) and Data([]byte)")
+	assert.Equal(t, body1, body2, "body differs between Data(string) and Data([]byte)")
+}
