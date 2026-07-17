@@ -213,9 +213,8 @@ func Body(body io.Reader) Option {
 }
 
 // Data sets the request body from data. Content-Type is resolved in two
-// cases (see issue #48): if the caller sets it via [Headers] or
-// [HeaderPairs], that value is used as-is; otherwise it is deduced from
-// data's type:
+// cases: if the caller sets it via [Headers] or [HeaderPairs], that value
+// is used as-is; otherwise it is deduced from data's type:
 //
 //   - io.Reader (e.g. *bytes.Buffer): read and detected via [http.DetectContentType]
 //   - []byte or *[]byte: detected via [http.DetectContentType]
